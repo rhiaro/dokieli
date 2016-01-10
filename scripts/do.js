@@ -33,6 +33,7 @@ var DO = {
         AutoSaveTimer: 60000,
         DisableStorageButtons: '<button class="local-storage-disable-html">Disable</button> | <input id="local-storage-html-autosave" class="autosave" type="checkbox" checked="checked"/> <label for="local-storage-html-autosave">Autosave (1m)</label>',
         EnableStorageButtons: '<button class="local-storage-enable-html">Enable</button>',
+        FileBrowser: '<aside id="file-browser" class="do on"><button class="close">❌</button><h2>Choose location</h2><div><p><label>URL</label><input id="storage" type="text" placeholder="https://example.org/path/to/article" value="" name="storage"/> <button class="create">Save</button></p></div></aside>',
         CDATAStart: '//<![CDATA[',
         CDATAEnd: '//]]>',
         SortableList: (($('head script[src$="html.sortable.min.js"]').length > 0) ? true : false),
@@ -869,8 +870,9 @@ var DO = {
 
             $('#toc').remove();
             $('#embed-data-entry').remove();
-            $('#create-new-document').remove();
-            $('#save-as-document').remove();
+            //$('#create-new-document').remove();
+            //$('#file-browser').remove();
+            $('#file-browser').remove();
             $('#user-identity-input').remove();
 //            DO.U.hideStorage();
         },
@@ -1581,7 +1583,7 @@ var DO = {
                 });
             }
 
-            $('#document-do').on('click', '.resource-new', DO.U.createNewDocument);
+            $('#document-do').on('click', '.resource-new', DO.U.selectStorage);
             $('#document-do').on('click', '.resource-save', function(e) {
                 var url = window.location.origin + window.location.pathname;
                 var data = DO.U.getDocument();
@@ -1594,7 +1596,7 @@ var DO = {
                     }
                 );
             });
-            $('#document-do').on('click', '.resource-save-as', DO.U.saveAsDocument);
+            $('#document-do').on('click', '.resource-save-as', DO.U.selectStorage);
 
             $('#document-do').on('click', '.resource-export', DO.U.exportAsHTML);
 
@@ -1604,12 +1606,33 @@ var DO = {
                 return false;
             });
         },
+        
+        makeFileBrowser: function() {
+            document.querySelector('body').insertAdjacentHTML('beforeEnd', DO.C.FileBrowser);
+            if(DO.C.User.Storage) {
+                
+                document.getElementById('storage').value = DO.C.User.Storage;
+                console.log(DO.C.User.Storage);
+            }else{
+              document.getElementById('file-browser').insertAdjacentHTML('beforeEnd', '<p class="warning">TODO: handle not signed in</p>');
+              console.log('TODO: initiate login');
+            }
+        },
+        
+        selectStorage: function() {
+            this.disabled = "disabled";
+            DO.U.makeFileBrowser();
+            
+            var fileBrowser = document.getElementById('file-browser');
+            console.log(this);
+            console.log(fileBrowser);
+        },
 
         createNewDocument: function() {
             $(this).prop('disabled', 'disabled');
-            $('body').append('<aside id="create-new-document" class="do on"><button class="close">❌</button><h2>Create New Document</h2><div>' + DO.U.getBaseURLSelection() + '<p><label>URL</label><input id="storage" type="text" placeholder="https://example.org/path/to/article" value="" name="storage"/> <button class="create">Create</button></p></div></aside>');
+            $('body').append(DO.C.FileBrowser);
 
-            var newDocument = $('#create-new-document');
+            var newDocument = $('#file-browser');
             newDocument.find('#storage').focus();
 
             newDocument.on('click', 'button.close', function(e) {
@@ -1617,7 +1640,7 @@ var DO = {
             });
 
             newDocument.on('click', 'button.create', function(e) {
-                var newDocument = $('#create-new-document')
+                var newDocument = $('#file-browser')
                 var storageIRI = newDocument.find('input#storage').val().trim();
                 newDocument.find('.success, .warning, .error').remove();
 
@@ -1662,9 +1685,9 @@ var DO = {
 
         saveAsDocument: function() {
             $(this).prop('disabled', 'disabled');
-            $('body').append('<aside id="save-as-document" class="do on"><button class="close">❌</button><h2>Save As Document</h2><div>' + DO.U.getBaseURLSelection() + '<p><label>URL</label><input id="storage" type="text" placeholder="https://example.org/path/to/article" value="" name="storage"/> <button class="create">Save</button></p></div></aside>');
+            $('body').append(DO.C.FileBrowser);
 
-            var saveAsDocument = $('#save-as-document');
+            var saveAsDocument = $('#file-browser');
 
             saveAsDocument.find('#storage').focus();
 
@@ -1673,7 +1696,7 @@ var DO = {
             });
 
             saveAsDocument.on('click', 'button.create', function(e) {
-                var saveAsDocument = $('#save-as-document');
+                var saveAsDocument = $('#file-browser');
                 var storageIRI = saveAsDocument.find('input#storage').val().trim();
                 saveAsDocument.find('.success, .warning, .error').remove();
 
