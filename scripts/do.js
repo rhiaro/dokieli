@@ -33,7 +33,7 @@ var DO = {
         AutoSaveTimer: 60000,
         DisableStorageButtons: '<button class="local-storage-disable-html">Disable</button> | <input id="local-storage-html-autosave" class="autosave" type="checkbox" checked="checked"/> <label for="local-storage-html-autosave">Autosave (1m)</label>',
         EnableStorageButtons: '<button class="local-storage-enable-html">Enable</button>',
-        FileBrowser: '<aside id="file-browser" class="do on"><button class="close">❌</button><h2>Choose location</h2><div><p><label>URL</label><input id="storage" type="text" placeholder="https://example.org/path/to/article" value="" name="storage"/> <button class="create">Save</button></p></div></aside>',
+        ResourceBrowser: '<aside id="file-browser" class="do on"><button class="close">❌</button><h2>Choose location</h2><div><p id="storage"> ...</p></div></aside>',
         CDATAStart: '//<![CDATA[',
         CDATAEnd: '//]]>',
         SortableList: (($('head script[src$="html.sortable.min.js"]').length > 0) ? true : false),
@@ -111,6 +111,11 @@ var DO = {
             },
             "solidinbox": {
                 "@id": "http://www.w3.org/ns/solid/terms#inbox",
+                "@type": "@id",
+                "@array": true
+            },
+            "ldpcontains": {
+                "@id": "http://www.w3.org/ns/ldp#contains",
                 "@type": "@id",
                 "@array": true
             }
@@ -1607,12 +1612,47 @@ var DO = {
             });
         },
         
-        makeFileBrowser: function() {
-            document.querySelector('body').insertAdjacentHTML('beforeEnd', DO.C.FileBrowser);
+        forceTrailingSlash: function(aString) { // TODO: Maybe this function should live elsewhere
+            if(aString.slice(-1) == "/") return aString;
+            else return aString + "/";
+        },
+        
+        makeResourceBrowser: function() {
+            document.querySelector('body').insertAdjacentHTML('beforeEnd', DO.C.ResourceBrowser);
             if(DO.C.User.Storage) {
+                var storageUrl = DO.U.forceTrailingSlash(DO.C.User.Storage[0]); // TODO: options for multiple storage
+                document.getElementById('storage').textContent = storageUrl;
+                console.log(storageUrl);
+                var foo = function() {
+                  return new Promise(function(resolve, reject) {
+                    var g = SimpleRDF(DO.C.Vocab);
+                    g.iri(storageUrl).get().then(
+                      function(i) {
+                        var s = i.iri(storageUrl);
+                        console.log(s);
+                        console.log(s.ldpcontains);
+                        return resolve(s.ldpcontains);
                 
-                document.getElementById('storage').value = DO.C.User.Storage;
-                console.log(DO.C.User.Storage);
+                      },
+                      function(reason) {
+                        console.log(reason);
+                        return reject(reason);
+                      }
+                    );
+                  });
+                };
+                
+                foo().then(
+                  function(i) {
+                    i.forEach(function(c) {
+                      console.log(c);
+                    });
+                  },
+                  function(reason) {
+                    console.log(reason);
+                  }
+                );
+            
             }else{
               document.getElementById('file-browser').insertAdjacentHTML('beforeEnd', '<p class="warning">TODO: handle not signed in</p>');
               console.log('TODO: initiate login');
@@ -1621,11 +1661,10 @@ var DO = {
         
         selectStorage: function() {
             this.disabled = "disabled";
-            DO.U.makeFileBrowser();
+            DO.U.makeResourceBrowser();
             
             var fileBrowser = document.getElementById('file-browser');
-            console.log(this);
-            console.log(fileBrowser);
+            
         },
 
         createNewDocument: function() {
