@@ -1637,35 +1637,38 @@ var DO = {
             });
         },
         
+        generateBrowserList: function(g, url) {
+          
+            var list = document.createElement('ul');
+            var current = g.iri(url);
+            var contains = current.ldpcontains;
+            contains.forEach(function(c){
+                var cg = g.iri(c);
+                var types = cg.rdftype;
+                if(types.indexOf('http://www.w3.org/ns/ldp#Container') > -1){
+                    var path = DO.U.getUrlPath(c);
+                    list.insertAdjacentHTML('beforeEnd', '<li><input type="radio" value="' + c + '" id="' + c + '" name="location" /><label for="' + c + '">' + path[path.length-2] + "</label></li>");
+                }
+            });
+            return list;
+        },
+        
         makeResourceBrowser: function() {
             document.querySelector('body').insertAdjacentHTML('beforeEnd', DO.C.ResourceBrowser);
             if(DO.C.User.Storage) {
                 var storageUrl = DO.U.forceTrailingSlash(DO.C.User.Storage[0]); // TODO: options for multiple storage
                 var storageBox = document.getElementById('browser-contents');
                 var breadcrumbs = document.createElement('p');
-                var list = document.createElement('ul');
-                breadcrumbs.textContent = storageUrl;
-                storageBox.appendChild(breadcrumbs);
-                storageBox.appendChild(list);
                 
-                DO.U.getGraph(storageUrl).then(
-                  
-                    function(g) {
-                        var current = g.iri(storageUrl);
-                        var contains = current.ldpcontains;
-                        contains.forEach(function(c){
-                            var cg = g.iri(c);
-                            var types = cg.rdftype;
-                            if(types.indexOf('http://www.w3.org/ns/ldp#Container') > -1){
-                                var path = DO.U.getUrlPath(c);
-                                list.insertAdjacentHTML('beforeEnd', '<li><input type="radio" value="' + c + '" id="' + c + '" name="location" /><label for="' + c + '">' + path[path.length-2] + "</label></li>");
-                            }
-                        });
-                    },
-                    function(reason) {
-                      console.log(reason);
-                    }
-                );
+                breadcrumbs.textContent = storageUrl;
+                
+                DO.U.getGraph(storageUrl).then(function(g){
+                    var list = DO.U.generateBrowserList(g, storageUrl);
+                    storageBox.appendChild(breadcrumbs);
+                    storageBox.appendChild(list);
+                    console.log(list);
+                });
+                
             
             }else{
               storageBox.insertAdjacentHTML('beforeEnd', '<p class="warning">TODO: handle not signed in</p>');
