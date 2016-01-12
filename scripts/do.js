@@ -33,7 +33,7 @@ var DO = {
         AutoSaveTimer: 60000,
         DisableStorageButtons: '<button class="local-storage-disable-html">Disable</button> | <input id="local-storage-html-autosave" class="autosave" type="checkbox" checked="checked"/> <label for="local-storage-html-autosave">Autosave (1m)</label>',
         EnableStorageButtons: '<button class="local-storage-enable-html">Enable</button>',
-        ResourceBrowser: '<aside id="file-browser" class="do on"><button class="close">❌</button><h2>Choose location</h2><div><p id="storage"> ...</p></div></aside>',
+        ResourceBrowser: '<aside id="file-browser" class="do on"><button class="close">❌</button><h2>Choose location</h2><div id="browser-contents"></div></aside>',
         CDATAStart: '//<![CDATA[',
         CDATAEnd: '//]]>',
         SortableList: (($('head script[src$="html.sortable.min.js"]').length > 0) ? true : false),
@@ -1612,49 +1612,63 @@ var DO = {
             });
         },
         
-        forceTrailingSlash: function(aString) { // TODO: Maybe this function should live elsewhere
+        // TODO: Some functions that maybe should live elsewhere
+        forceTrailingSlash: function(aString) {
             if(aString.slice(-1) == "/") return aString;
             else return aString + "/";
+        },
+        
+        getUrlPath: function(aString) {
+            return aString.split("/");
+        },
+        
+        getGraph: function(url) {
+            return new Promise(function(resolve, reject) {
+                var g = SimpleRDF(DO.C.Vocab);
+                g.iri(url).get().then(
+                    function(i){
+                       return resolve(i);
+                    },
+                    function(reason) {
+                      console.log(reason);
+                      return reject(reason);
+                    }
+                );
+            });
         },
         
         makeResourceBrowser: function() {
             document.querySelector('body').insertAdjacentHTML('beforeEnd', DO.C.ResourceBrowser);
             if(DO.C.User.Storage) {
                 var storageUrl = DO.U.forceTrailingSlash(DO.C.User.Storage[0]); // TODO: options for multiple storage
-                document.getElementById('storage').textContent = storageUrl;
-                console.log(storageUrl);
-                var foo = function() {
-                  return new Promise(function(resolve, reject) {
-                    var g = SimpleRDF(DO.C.Vocab);
-                    g.iri(storageUrl).get().then(
-                      function(i) {
-                        var s = i.iri(storageUrl);
-                        console.log(s);
-                        console.log(s.ldpcontains);
-                        return resolve(s.ldpcontains);
+                var storageBox = document.getElementById('browser-contents');
+                var breadcrumbs = document.createElement('p');
+                var list = document.createElement('ul');
+                breadcrumbs.textContent = storageUrl;
+                storageBox.appendChild(breadcrumbs);
+                storageBox.appendChild(list);
                 
-                      },
-                      function(reason) {
-                        console.log(reason);
-                        return reject(reason);
-                      }
-                    );
-                  });
-                };
-                
-                foo().then(
-                  function(i) {
-                    i.forEach(function(c) {
-                      console.log(c);
-                    });
-                  },
-                  function(reason) {
-                    console.log(reason);
-                  }
+                DO.U.getGraph(storageUrl).then(
+                  
+                    function(g) {
+                        var current = g.iri(storageUrl);
+                        var contains = current.ldpcontains;
+                        contains.forEach(function(c){
+                            var cg = g.iri(c);
+                            var types = cg.rdftype;
+                            if(types.indexOf('http://www.w3.org/ns/ldp#Container') > -1){
+                                var path = DO.U.getUrlPath(c);
+                                list.insertAdjacentHTML('beforeEnd', '<li><input type="radio" value="' + c + '" id="' + c + '" name="location" /><label for="' + c + '">' + path[path.length-2] + "</label></li>");
+                            }
+                        });
+                    },
+                    function(reason) {
+                      console.log(reason);
+                    }
                 );
             
             }else{
-              document.getElementById('file-browser').insertAdjacentHTML('beforeEnd', '<p class="warning">TODO: handle not signed in</p>');
+              storageBox.insertAdjacentHTML('beforeEnd', '<p class="warning">TODO: handle not signed in</p>');
               console.log('TODO: initiate login');
             }
         },
