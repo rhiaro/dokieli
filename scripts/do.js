@@ -1744,6 +1744,7 @@ var DO = {
 
             newDocument.querySelector('#browser-save').addEventListener('click', function(){
                 var storageIRI = newDocument.querySelector('#browser-location').textContent;
+                //TODO: find and remove stray messages
                 console.log(storageIRI);
 
                 var html = document.documentElement.cloneNode(true);
@@ -1792,20 +1793,20 @@ var DO = {
 
             var saveAsDocument = document.getElementById('file-browser');
 
-            $(saveAsDocument).on('click', 'button.close', function(e) {
+            saveAsDocument.querySelector('button.close').addEventListener('click', function(e) {
                 document.querySelector('#document-do .resource-save-as').removeAttribute('disabled');
-            });
+            }, false);
 
-            newDocument.querySelector('browser-save').addEventListener('click', function(){
-                var saveAsDocument = $('#file-browser');
-                var storageIRI = saveAsDocument.find('input#storage').val().trim();
-                $(saveAsDocument).find('.success, .warning, .error').remove();
+            saveAsDocument.querySelector('#browser-save').addEventListener('click', function(){
+                var storageIRI = saveAsDocument.querySelector('#browser-location').textContent;
+                //TODO: find and remove stray messages
 
                 var html = document.documentElement.cloneNode(true);
-                var baseURLSelectionChecked = saveAsDocument.find('input[name="base-url"]:checked');
+                var baseURLSelectionChecked = saveAsDocument.querySelectorAll('input[name="base-url"]:checked');
+                
                 if (baseURLSelectionChecked.length > 0) {
-                    var baseURLType = baseURLSelectionChecked.val();
-                    var nodes = $(html).find('head link, [src], object[data]');
+                    var baseURLType = baseURLSelectionChecked[0].value;
+                    var nodes = $(html).find('head link, [src], object[data]'); // TODO: kill this jquery, affects rewriteBaseURL
                     if (baseURLType == 'base-url-relative') {
                         DO.U.copyRelativeResources(storageIRI, nodes);
                     }
@@ -1815,19 +1816,19 @@ var DO = {
 
                 DO.U.putResource(storageIRI, html).then(
                     function(i) {
-                        saveAsDocument.append('<p class="success">Document saved at <a href="' + storageIRI + '">' + storageIRI + '</a></p>');
+                        document.getElementById('browser-contents').innerHTML = '<p class="success">Document copied to <a href="' + storageIRI + '?edit=true">' + storageIRI + '</a></p>';
                         window.open(storageIRI, '_blank');
                     },
                     function(reason) {
                         switch(reason.status) {
                             default:
-                                saveAsDocument.append('<p class="error">Unable to save.</p>');
+                                newDocument.insertAdjacentHTML('beforeEnd', '<p class="error">Unable to create new.</p>');
                                 break;
                             case 0: case 405:
-                                saveAsDocument.append('<p class="error">Unable to save: this location is not writeable.</p>');
+                                newDocument.insertAdjacentHTML('beforeEnd', '<p class="error">Unable to create new: this location is not writeable.</p>');
                                 break;
                             case 401: case 403:
-                                saveAsDocument.append('<p class="error">Unable to save: you don\'t have permission to write here.</p>');
+                                newDocument.insertAdjacentHTML('beforeEnd', '<p class="error">Unable to create new: you don\'t have permission to write here.</p>');
                                 break;
                         }
                         console.log(reason);
