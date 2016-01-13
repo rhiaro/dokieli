@@ -1647,7 +1647,7 @@ var DO = {
                 var types = cg.rdftype;
                 if(types.indexOf('http://www.w3.org/ns/ldp#Container') > -1){
                     var path = DO.U.getUrlPath(c);
-                    list.insertAdjacentHTML('beforeEnd', '<li><input type="radio" value="' + c + '" id="' + c + '" name="location" /><label for="' + c + '">' + path[path.length-2] + "</label></li>");
+                    list.insertAdjacentHTML('beforeEnd', '<li><input type="radio" value="' + c + '" id="' + c + '" name="location" /><label for="' + c + '">' + path[path.length-2] + '</label> <button>' + path[path.length-2] + '</button></li>');
                 }
             });
             return list;
@@ -1666,7 +1666,15 @@ var DO = {
                     var list = DO.U.generateBrowserList(g, storageUrl);
                     storageBox.appendChild(breadcrumbs);
                     storageBox.appendChild(list);
-                    console.log(list);
+                    var buttons = list.querySelectorAll('button');
+                    for(var i = 0; i < buttons.length; i++) {
+                        buttons[i].addEventListener('click', function(){
+                            var url = this.parentNode.querySelector('input').value;
+                            DO.U.getGraph(url).then(function(g2){
+                              console.log(DO.U.generateBrowserList(g2, url));
+                            });
+                        }, false);
+                    }
                 });
                 
             
