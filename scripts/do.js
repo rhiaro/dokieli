@@ -1650,6 +1650,13 @@ var DO = {
                 var list = document.getElementById('browser-ul');
                 list.innerHTML = '';
                 
+                var prevUrl = document.getElementById('browser-breadcrumbs').textContent;
+                document.getElementById('browser-breadcrumbs').textContent = url;
+                var upBtn = document.createElement('button');
+                upBtn.textContent = "...";
+                upBtn.id = "browser-up";
+                list.appendChild(upBtn);
+                
                 var current = g.iri(url);
                 var contains = current.ldpcontains;
                 contains.forEach(function(c){
@@ -1663,9 +1670,13 @@ var DO = {
                 
                 var buttons = list.querySelectorAll('button');
                 for(var i = 0; i < buttons.length; i++) {
-                    DO.U.nextLevelButton(buttons[i], buttons[i].parentNode.querySelector('input').value);
+                    if(buttons[i].id == "browser-up"){
+                      DO.U.nextLevelButton(buttons[i], prevUrl);
+                    }else{
+                        DO.U.nextLevelButton(buttons[i], buttons[i].parentNode.querySelector('input').value);
+                    }
                 }
-                document.getElementById('browser-breadcrumbs').textContent = url;
+                
                 return resolve(list);
             });
         },
