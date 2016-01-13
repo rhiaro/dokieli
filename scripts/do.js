@@ -1650,11 +1650,14 @@ var DO = {
                 var list = document.getElementById('browser-ul');
                 list.innerHTML = '';
                 
-                var prevUrl = document.getElementById('browser-breadcrumbs').textContent;
+                var urlPath = DO.U.getUrlPath(url);
+                urlPath.splice(-2,2);
+                var prevUrl = DO.U.forceTrailingSlash(urlPath.join("/"));
                 document.getElementById('browser-breadcrumbs').textContent = url;
                 var upBtn = document.createElement('button');
                 upBtn.textContent = "...";
                 upBtn.id = "browser-up";
+                upBtn.value = prevUrl;
                 list.appendChild(upBtn);
                 
                 var current = g.iri(url);
@@ -1664,17 +1667,13 @@ var DO = {
                     var types = cg.rdftype;
                     if(types.indexOf('http://www.w3.org/ns/ldp#Container') > -1){
                         var path = DO.U.getUrlPath(c);
-                        list.insertAdjacentHTML('beforeEnd', '<li><input type="radio" value="' + c + '" id="' + c + '" name="location" /><label for="' + c + '">' + path[path.length-2] + '</label> <button>&gt;</button></li>');
+                        list.insertAdjacentHTML('beforeEnd', '<li><button value="' + c + '">' + path[path.length-2] + '</button></li>');
                     }
                 });
                 
                 var buttons = list.querySelectorAll('button');
                 for(var i = 0; i < buttons.length; i++) {
-                    if(buttons[i].id == "browser-up"){
-                      DO.U.nextLevelButton(buttons[i], prevUrl);
-                    }else{
-                        DO.U.nextLevelButton(buttons[i], buttons[i].parentNode.querySelector('input').value);
-                    }
+                    DO.U.nextLevelButton(buttons[i], buttons[i].value);
                 }
                 
                 return resolve(list);
@@ -1705,6 +1704,7 @@ var DO = {
                 var input = document.createElement('input');
                 input.type = "text";
                 input.id = 'browser-filename-input';
+                input.placeholder = 'filename';
                 input.addEventListener('keyup', function(){
                     document.getElementById('browser-filename').textContent = input.value;
                 }, false);
