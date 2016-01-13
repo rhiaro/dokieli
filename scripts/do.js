@@ -1686,12 +1686,34 @@ var DO = {
             if(DO.C.User.Storage) {
                 var storageUrl = DO.U.forceTrailingSlash(DO.C.User.Storage[0]); // TODO: options for multiple storage
                 var storageBox = document.getElementById('browser-contents');
+                
                 var breadcrumbs = document.createElement('p');
-                breadcrumbs.id = "browser-breadcrumbs";
-                breadcrumbs.textContent = storageUrl;
+                var dirPath = document.createElement('span');
+                dirPath.id = "browser-breadcrumbs";
+                dirPath.textContent = storageUrl;
+                
+                var filePath = document.createElement('span');
+                filePath.id = "browser-filename";
+                filePath.style.fontWeight = 'bold';
+                console.log(filePath);
+                
+                breadcrumbs.appendChild(dirPath);
+                breadcrumbs.appendChild(filePath);
+                
+                storageBox.appendChild(breadcrumbs);
+                
+                var input = document.createElement('input');
+                input.type = "text";
+                input.id = 'browser-filename-input';
+                input.addEventListener('keyup', function(){
+                    document.getElementById('browser-filename').textContent = input.value;
+                }, false);
+                
+                storageBox.appendChild(input);
+                
                 var browserul = document.createElement('ul');
                 browserul.id = "browser-ul";
-                storageBox.appendChild(breadcrumbs);
+                
                 storageBox.appendChild(browserul);
                 
                 DO.U.getGraph(storageUrl).then(function(g){
