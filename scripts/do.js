@@ -1637,9 +1637,8 @@ var DO = {
             });
         },
         
-        nextLevelButton: function(button) {
+        nextLevelButton: function(button, url) {
             button.addEventListener('click', function(){
-                var url = this.parentNode.querySelector('input').value;
                 DO.U.getGraph(url).then(function(g){
                     DO.U.generateBrowserList(g, url);
                 });
@@ -1650,6 +1649,7 @@ var DO = {
             return new Promise(function(resolve, reject){
                 var list = document.getElementById('browser-ul');
                 list.innerHTML = '';
+                
                 var current = g.iri(url);
                 var contains = current.ldpcontains;
                 contains.forEach(function(c){
@@ -1663,9 +1663,9 @@ var DO = {
                 
                 var buttons = list.querySelectorAll('button');
                 for(var i = 0; i < buttons.length; i++) {
-                    DO.U.nextLevelButton(buttons[i]);
+                    DO.U.nextLevelButton(buttons[i], buttons[i].parentNode.querySelector('input').value);
                 }
-                
+                document.getElementById('browser-breadcrumbs').textContent = url;
                 return resolve(list);
             });
         },
@@ -1676,6 +1676,7 @@ var DO = {
                 var storageUrl = DO.U.forceTrailingSlash(DO.C.User.Storage[0]); // TODO: options for multiple storage
                 var storageBox = document.getElementById('browser-contents');
                 var breadcrumbs = document.createElement('p');
+                breadcrumbs.id = "browser-breadcrumbs";
                 breadcrumbs.textContent = storageUrl;
                 var browserul = document.createElement('ul');
                 browserul.id = "browser-ul";
@@ -1685,7 +1686,6 @@ var DO = {
                 DO.U.getGraph(storageUrl).then(function(g){
                     DO.U.generateBrowserList(g, storageUrl);
                 });
-                
             
             }else{
               storageBox.insertAdjacentHTML('beforeEnd', '<p class="warning">TODO: handle not signed in</p>');
