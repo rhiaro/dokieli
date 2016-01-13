@@ -1637,10 +1637,19 @@ var DO = {
             });
         },
         
+        nextLevelButton: function(button) {
+            button.addEventListener('click', function(){
+                var url = this.parentNode.querySelector('input').value;
+                DO.U.getGraph(url).then(function(g){
+                    DO.U.generateBrowserList(g, url);
+                });
+            }, false);
+        },
+        
         generateBrowserList: function(g, url) {
             return new Promise(function(resolve, reject){
                 var list = document.getElementById('browser-ul');
-                list.innerHTML = "";
+                list.innerHTML = '';
                 var current = g.iri(url);
                 var contains = current.ldpcontains;
                 contains.forEach(function(c){
@@ -1654,12 +1663,7 @@ var DO = {
                 
                 var buttons = list.querySelectorAll('button');
                 for(var i = 0; i < buttons.length; i++) {
-                    buttons[i].addEventListener('click', function(){
-                        var url = this.parentNode.querySelector('input').value;
-                        DO.U.getGraph(url).then(function(g){
-                            DO.U.generateBrowserList(g, url);
-                        });
-                    }, false);
+                    DO.U.nextLevelButton(buttons[i]);
                 }
                 
                 return resolve(list);
@@ -1677,10 +1681,6 @@ var DO = {
                 browserul.id = "browser-ul";
                 storageBox.appendChild(breadcrumbs);
                 storageBox.appendChild(browserul);
-                
-                // get graph then
-                // get contents then
-                // check type of each content and make list and add event listeners
                 
                 DO.U.getGraph(storageUrl).then(function(g){
                     DO.U.generateBrowserList(g, storageUrl);
