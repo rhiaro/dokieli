@@ -1638,19 +1638,32 @@ var DO = {
         },
         
         generateBrowserList: function(g, url) {
-          
-            var list = document.createElement('ul');
-            var current = g.iri(url);
-            var contains = current.ldpcontains;
-            contains.forEach(function(c){
-                var cg = g.iri(c);
-                var types = cg.rdftype;
-                if(types.indexOf('http://www.w3.org/ns/ldp#Container') > -1){
-                    var path = DO.U.getUrlPath(c);
-                    list.insertAdjacentHTML('beforeEnd', '<li><input type="radio" value="' + c + '" id="' + c + '" name="location" /><label for="' + c + '">' + path[path.length-2] + '</label> <button>' + path[path.length-2] + '</button></li>');
+            return new Promise(function(resolve, reject){
+                var list = document.getElementById('browser-ul');
+                list.innerHTML = "";
+                var current = g.iri(url);
+                var contains = current.ldpcontains;
+                contains.forEach(function(c){
+                    var cg = g.iri(c);
+                    var types = cg.rdftype;
+                    if(types.indexOf('http://www.w3.org/ns/ldp#Container') > -1){
+                        var path = DO.U.getUrlPath(c);
+                        list.insertAdjacentHTML('beforeEnd', '<li><input type="radio" value="' + c + '" id="' + c + '" name="location" /><label for="' + c + '">' + path[path.length-2] + '</label> <button>&gt;</button></li>');
+                    }
+                });
+                
+                var buttons = list.querySelectorAll('button');
+                for(var i = 0; i < buttons.length; i++) {
+                    buttons[i].addEventListener('click', function(){
+                        var url = this.parentNode.querySelector('input').value;
+                        DO.U.getGraph(url).then(function(g){
+                            DO.U.generateBrowserList(g, url);
+                        });
+                    }, false);
                 }
+                
+                return resolve(list);
             });
-            return list;
         },
         
         makeResourceBrowser: function() {
@@ -1659,22 +1672,18 @@ var DO = {
                 var storageUrl = DO.U.forceTrailingSlash(DO.C.User.Storage[0]); // TODO: options for multiple storage
                 var storageBox = document.getElementById('browser-contents');
                 var breadcrumbs = document.createElement('p');
-                
                 breadcrumbs.textContent = storageUrl;
+                var browserul = document.createElement('ul');
+                browserul.id = "browser-ul";
+                storageBox.appendChild(breadcrumbs);
+                storageBox.appendChild(browserul);
+                
+                // get graph then
+                // get contents then
+                // check type of each content and make list and add event listeners
                 
                 DO.U.getGraph(storageUrl).then(function(g){
-                    var list = DO.U.generateBrowserList(g, storageUrl);
-                    storageBox.appendChild(breadcrumbs);
-                    storageBox.appendChild(list);
-                    var buttons = list.querySelectorAll('button');
-                    for(var i = 0; i < buttons.length; i++) {
-                        buttons[i].addEventListener('click', function(){
-                            var url = this.parentNode.querySelector('input').value;
-                            DO.U.getGraph(url).then(function(g2){
-                              console.log(DO.U.generateBrowserList(g2, url));
-                            });
-                        }, false);
-                    }
+                    DO.U.generateBrowserList(g, storageUrl);
                 });
                 
             
