@@ -1588,7 +1588,7 @@ var DO = {
                 });
             }
 
-            $('#document-do').on('click', '.resource-new', DO.U.selectStorage);
+            $('#document-do').on('click', '.resource-new', DO.U.createNewDocument);
             $('#document-do').on('click', '.resource-save', function(e) {
                 var url = window.location.origin + window.location.pathname;
                 var data = DO.U.getDocument();
@@ -1601,7 +1601,7 @@ var DO = {
                     }
                 );
             });
-            $('#document-do').on('click', '.resource-save-as', DO.U.selectStorage);
+            $('#document-do').on('click', '.resource-save-as', DO.U.saveAsDocument);
 
             $('#document-do').on('click', '.resource-export', DO.U.exportAsHTML);
 
@@ -1682,11 +1682,12 @@ var DO = {
         
         makeResourceBrowser: function() {
             document.querySelector('body').insertAdjacentHTML('beforeEnd', DO.C.ResourceBrowser);
+            var storageBox = document.getElementById('browser-contents');
             if(DO.C.User.Storage) {
                 var storageUrl = DO.U.forceTrailingSlash(DO.C.User.Storage[0]); // TODO: options for multiple storage
-                var storageBox = document.getElementById('browser-contents');
                 
                 var breadcrumbs = document.createElement('p');
+                breadcrumbs.id = "browser-location";
                 var dirPath = document.createElement('span');
                 dirPath.id = "browser-breadcrumbs";
                 dirPath.textContent = storageUrl;
@@ -1708,13 +1709,18 @@ var DO = {
                 input.addEventListener('keyup', function(){
                     document.getElementById('browser-filename').textContent = input.value;
                 }, false);
+                var saveBtn = document.createElement('button');
+                saveBtn.id = 'browser-save';
+                saveBtn.textContent = "Save";
                 
                 storageBox.appendChild(input);
+                storageBox.appendChild(saveBtn);
                 
                 var browserul = document.createElement('ul');
                 browserul.id = "browser-ul";
                 
                 storageBox.appendChild(browserul);
+                storageBox.insertAdjacentHTML('beforeEnd', DO.U.getBaseURLSelection());
                 
                 DO.U.getGraph(storageUrl).then(function(g){
                     DO.U.generateBrowserList(g, storageUrl);
@@ -1725,86 +1731,75 @@ var DO = {
               console.log('TODO: initiate login');
             }
         },
-        
-        selectStorage: function() {
-            this.disabled = "disabled";
-            DO.U.makeResourceBrowser();
-            
-            var fileBrowser = document.getElementById('file-browser');
-            
-        },
 
         createNewDocument: function() {
-            $(this).prop('disabled', 'disabled');
-            $('body').append(DO.C.FileBrowser);
+            this.disabled = "disabled";
+            DO.U.makeResourceBrowser();
 
-            var newDocument = $('#file-browser');
-            newDocument.find('#storage').focus();
+            var newDocument = document.getElementById('file-browser');
 
-            newDocument.on('click', 'button.close', function(e) {
-                $('#document-do .resource-new').removeAttr('disabled');
-            });
+            newDocument.querySelector('button.close').addEventListener('click', function(e) {
+                document.querySelector('#document-do .resource-new').removeAttribute('disabled');
+            }, false);
 
-            newDocument.on('click', 'button.create', function(e) {
-                var newDocument = $('#file-browser')
-                var storageIRI = newDocument.find('input#storage').val().trim();
-                newDocument.find('.success, .warning, .error').remove();
+            newDocument.querySelector('#browser-save').addEventListener('click', function(){
+                var storageIRI = newDocument.querySelector('#browser-location').textContent;
+                console.log(storageIRI);
 
                 var html = document.documentElement.cloneNode(true);
-                var baseURLSelectionChecked = newDocument.find('input[name="base-url"]:checked');
+                var baseURLSelectionChecked = newDocument.querySelectorAll('input[name="base-url"]:checked');
+                
                 if (baseURLSelectionChecked.length > 0) {
-                    var baseURLType = baseURLSelectionChecked.val();
-                    var nodes = $(html).find('head link, [src], object[data]');
+                    var baseURLType = baseURLSelectionChecked[0].value;
+                    var nodes = $(html).find('head link, [src], object[data]'); // TODO: kill this jquery, affects rewriteBaseURL
                     if (baseURLType == 'base-url-relative') {
                         DO.U.copyRelativeResources(storageIRI, nodes);
                     }
                     nodes = DO.U.rewriteBaseURL(nodes, baseURLType);
                 }
 
-                $(html).find('main > article').empty();
-                $(html).find('head title').empty();
+                html.querySelector('main > article').innerHTML = '';
+                html.querySelector('head title').innerHTML = '';
                 html = DO.U.getDocument(html);
 
                 DO.U.putResource(storageIRI, html).then(
                     function(i) {
                         console.log(i);
-                        newDocument.append('<p class="success">New document created at <a href="' + storageIRI + '?edit=true">' + storageIRI + '</a></p>');
+                        document.getElementById('browser-contents').innerHTML = '<p class="success">New document created at <a href="' + storageIRI + '?edit=true">' + storageIRI + '</a></p>';
                         window.open(storageIRI + '?edit=true', '_blank');
                     },
                     function(reason) {
                         switch(reason.status) {
                             default:
-                                newDocument.append('<p class="error">Unable to create new.</p>');
+                                newDocument.insertAdjacentHTML('beforeEnd', '<p class="error">Unable to create new.</p>');
                                 break;
                             case 0: case 405:
-                                newDocument.append('<p class="error">Unable to create new: this location is not writeable.</p>');
+                                newDocument.insertAdjacentHTML('beforeEnd', '<p class="error">Unable to create new: this location is not writeable.</p>');
                                 break;
                             case 401: case 403:
-                                newDocument.append('<p class="error">Unable to create new: you don\'t have permission to write here.</p>');
+                                newDocument.insertAdjacentHTML('beforeEnd', '<p class="error">Unable to create new: you don\'t have permission to write here.</p>');
                                 break;
                         }
                         console.log(reason);
                     }
                 );
-            });
+            }, false);
         },
 
         saveAsDocument: function() {
-            $(this).prop('disabled', 'disabled');
-            $('body').append(DO.C.FileBrowser);
+            this.disabled = "disabled";
+            DO.U.makeResourceBrowser();
 
-            var saveAsDocument = $('#file-browser');
+            var saveAsDocument = document.getElementById('file-browser');
 
-            saveAsDocument.find('#storage').focus();
-
-            saveAsDocument.on('click', 'button.close', function(e) {
-                $('#document-do .resource-save-as').removeAttr('disabled');
+            $(saveAsDocument).on('click', 'button.close', function(e) {
+                document.querySelector('#document-do .resource-save-as').removeAttribute('disabled');
             });
 
-            saveAsDocument.on('click', 'button.create', function(e) {
+            newDocument.querySelector('browser-save').addEventListener('click', function(){
                 var saveAsDocument = $('#file-browser');
                 var storageIRI = saveAsDocument.find('input#storage').val().trim();
-                saveAsDocument.find('.success, .warning, .error').remove();
+                $(saveAsDocument).find('.success, .warning, .error').remove();
 
                 var html = document.documentElement.cloneNode(true);
                 var baseURLSelectionChecked = saveAsDocument.find('input[name="base-url"]:checked');
@@ -1838,7 +1833,7 @@ var DO = {
                         console.log(reason);
                     }
                 );
-            });
+            }, false);
         },
 
         getBaseURLSelection: function() {
