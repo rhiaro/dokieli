@@ -2330,6 +2330,10 @@ var DO = {
                 $('#local-storage.do').remove();
             }
         },
+        
+        showRemoteStorage: function() {
+            // HERENOW
+        }
 
         getDateTimeISO: function() {
             var date = new Date();
