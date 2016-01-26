@@ -75,21 +75,21 @@ var DO = {
                 "@type": "@id"
             },
 
-            "schemaname": "http://schema.org/name",
+            "schemaname": "https://schema.org/name",
             "schemaurl": {
-                "@id": "http://schema.org/url",
+                "@id": "https://schema.org/url",
                 "@type": "@id"
             },
             "schemaimage": {
-                "@id": "http://schema.org/image",
+                "@id": "https://schema.org/image",
                 "@type": "@id"
             },
             "schemacreator": {
-                "@id": "http://schema.org/creator",
+                "@id": "https://schema.org/creator",
                 "@type": "@id"
             },
             "schemalicense": {
-                "@id": "http://schema.org/license",
+                "@id": "https://schema.org/license",
                 "@type": "@id"
             },
 
@@ -530,19 +530,15 @@ var DO = {
         getInboxFromRDF: function(url, subjectIRI) {
             url = url || window.location.origin + window.location.pathname;
             subjectIRI = subjectIRI || url;
-            var pIRI = url;
 
-            pIRI = DO.U.stripFragmentFromString(pIRI);
+            url = DO.U.stripFragmentFromString(url);
 
-            if (pIRI.slice(0, 5).toLowerCase() != 'https' && document.location.origin != 'null') {
-                pIRI = document.location.origin + '/,proxy?uri=' + DO.U.encodeString(pIRI);
-            }
 //            console.log(pIRI);
 //            console.log(subjectIRI);
 
             return new Promise(function(resolve, reject) {
                 //FIXME: This doesn't work so well if the document's URL is different than input url
-                SimpleRDF(DO.C.Vocab, pIRI).get().then(
+                SimpleRDF(DO.C.Vocab, url).get().then(
                     function(i) {
                         var s = i.child(subjectIRI);
                         if (s.solidinbox.length > 0) {
@@ -831,7 +827,7 @@ var DO = {
             var data = '@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n\
 @prefix sterms: <http://www.w3.org/ns/solid/terms#> .\n\
 @prefix pingback: <http://purl.org/net/pingback/> .\n\
-@prefix schema: <http://schema.org/> .\n\
+@prefix schema: <https://schema.org/> .\n\
 <> a sterms:Notification , pingback:Request ;\n\
     pingback:source <' + source + '> ;\n\
     pingback:property <' + property + '> ;\n\
@@ -2766,7 +2762,7 @@ LIMIT 1";
             }
 
             var note = '\n\
-            <article id="' + n.id + '" about="[i:]" typeof="oa:Annotation as:Activity" prefix="schema: http://schema.org/ oa: http://www.w3.org/ns/oa# as: http://www.w3.org/ns/activitystreams# i: ' + n.iri +'">\n\
+            <article id="' + n.id + '" about="[i:]" typeof="oa:Annotation as:Activity" prefix="schema: https://schema.org/ oa: http://www.w3.org/ns/oa# as: http://www.w3.org/ns/activitystreams# i: ' + n.iri +'">\n\
                 ' + published + '\n\
                 ' + license + '\n\
                 ' + name + '\n\
@@ -2775,6 +2771,44 @@ LIMIT 1";
             </article>';
 
             return note;
+        },
+
+        createRDFaHTML: function(r) {
+            var s = '', property = '', resource = '', content = '', langDatatype = '', typeOf = '';
+
+            if (!('about' in r)) {
+                r.about = '#' + DO.U.generateAttributeId().slice(0, 6);
+            }
+            if (!('property' in r)) {
+                //TODO: Figure out how to use user's prefered vocabulary down the line.
+                r.property = 'rdfs:label';
+            }
+            if ('resource' in r) {
+                resource = ' resource="' + r.resource + '"';
+            }
+            if ('content' in r) {
+                content = ' content="' + r.content + '"';
+            }
+            if ('lang' in r) {
+                langDatatype = ' xml:lang="' + r.lang + '" lang="' + r.lang + '"';
+            }
+            else {
+                if ('datatype' in r) {
+                    langDatatype = ' datatype="' + r.content + '"';
+                }
+            }
+            if ('typeOf' in r) {
+                typeOf = ' typeof="' + r.typeOf + '"';
+            }
+
+            if ('rel' in r) {
+                s = '<a about="' + r.about + '"' + typeOf + ' rel="' + r.rel + '" href="' + r.href + '"' + resource + ' property="' + r.property +'"' + content + langDatatype + '>' + r.textContent + '</a>';
+            }
+            else {
+                s = '<span about="' + r.about + '" property="' + r.property + '"' + content + langDatatype + '>' + r.textContent + '</span>';
+            }
+
+           return s;
         },
 
         Editor: {
@@ -2832,11 +2866,14 @@ LIMIT 1";
                                 'anchor',
                                 'cite',
                                 'q',
-                                {
-                                    name: 'quote',
-                                    contentFA: '<i class="fa fa-indent"></i>'
-                                },
+                                // {
+                                //     name: 'quote',
+                                //     contentFA: '<i class="fa fa-indent"></i>'
+                                // },
                                 /*object, script*/
+
+                                //Semantic Marking
+                                'rdfa',
 
                                 //Annotation
                                 'mark',
@@ -2897,6 +2934,8 @@ LIMIT 1";
                             'cite': new DO.U.Editor.Button({action:'cite', label:'cite'}),
                             'q': new DO.U.Editor.Button({action:'q', label:'q'}),
 
+                            'rdfa': new DO.U.Editor.Note({action:'rdfa', label:'rdfa'}),
+
                             'mark': new DO.U.Editor.Note({action:'mark', label:'mark'}),
                             'note': new DO.U.Editor.Note({action:'article', label:'note'}),
 
@@ -2943,8 +2982,6 @@ LIMIT 1";
                                 case 'h1': case 'h2': case 'h3': case 'h4': case 'h5': case 'h6': this.contentFA = '<i class="fa fa-header">' + parseInt(this.action.slice(-1)) + '</i>'; break;
                                 case 'em': this.contentFA = '<i class="fa fa-italic"></i>'; break;
                                 case 'strong': this.contentFA = '<i class="fa fa-bold"></i>'; break;
-                                case 'mark': this.contentFA = '<i class="fa fa-paint-brush"></i>'; break;
-                                case 'note': this.contentFA = '<i class="fa fa-sticky-note"></i>'; break;
                                 case 'q': this.contentFA = '<i class="fa fa-quote-right"></i>'; break;
                                 default: break;
                             }
@@ -3193,14 +3230,6 @@ LIMIT 1";
                                         }
                                         break;
 
-                                    // case 'note':
-                                    //     var selectionUpdated = '<' + tagNames[0] + datetime + '>' + this.base.selection + '</' + tagNames[0] + '>';
-                                    //     MediumEditor.util.insertHTMLCommand(this.base.selectedDocument, selectionUpdated);
-
-                                    //     //Show Form for text entry;
-                                    //     DO.U.Editor.Note();
-                                    //     break;
-
                                     default:
                                         var selectionUpdated = '<' + tagNames[0] + datetime + '>' + this.base.selection + '</' + tagNames[0] + '>';
                                         MediumEditor.util.insertHTMLCommand(this.base.selectedDocument, selectionUpdated);
@@ -3271,11 +3300,14 @@ LIMIT 1";
                             this.useQueryState = true;
                             this.contentDefault = '<b>' + this.label + '</b>';
                             switch(this.action) {
-                                case 'mark':
+                                case 'mark': default:
                                     this.contentFA = '<i class="fa fa-paint-brush"></i>';
                                     break;
-                                case 'note': default:
+                                case 'article':
                                     this.contentFA = '<i class="fa fa-sticky-note"></i>';
+                                    break;
+                                case 'rdfa':
+                                    this.contentFA = '<i class="fa fa-rocket"></i>';
                                     break;
                             }
                             MediumEditor.extensions.form.prototype.init.apply(this, arguments);
@@ -3322,9 +3354,19 @@ LIMIT 1";
                         },
 
                         getTemplate: function () {
-                            var template = [
+                            var template = [];
+                            if (this.action == 'rdfa') {
+                                template = [
+                                'about: <input id="rdfa-about" class="medium-editor-toolbar-input" placeholder="http://example.org/foo#bar" /><br/>',
+                                'rel: <input id="rdfa-rel" class="medium-editor-toolbar-input" placeholder="https://schema.org/name"><br/>',
+                                'href <input id="rdfa-href" class="medium-editor-toolbar-input" placeholder="http://example.org/foo#bar" />'
+                                ];
+                            }
+                            else {
+                                template = [
                                 '<textarea cols="20" rows="1" class="medium-editor-toolbar-textarea" placeholder="', this.placeholderText, '"></textarea>'
-                            ];
+                                ];
+                            }
 
                             template.push(
                                 '<a href="#" class="medium-editor-toolbar-save">',
@@ -3399,7 +3441,13 @@ LIMIT 1";
                             this.setToolbarPosition();
 
                             input.value = opts.url;
-                            input.focus();
+
+                            if(this.action == 'rdfa') {
+                                input.about.focus();
+                            }
+                            else {
+                                input.focus();
+                            }
 
                             // If we have a target checkbox, we want it to be checked/unchecked
                             // based on whether the existing link has target=_blank
@@ -3433,10 +3481,17 @@ LIMIT 1";
                         getFormOpts: function () {
                             // no notion of private functions? wanted `_getFormOpts`
                             var targetCheckbox = this.getAnchorTargetCheckbox(),
-                                buttonCheckbox = this.getAnchorButtonCheckbox(),
-                                opts = {
-                                    url: this.getInput().value
-                                };
+                                buttonCheckbox = this.getAnchorButtonCheckbox();
+                            var opts = {};
+
+                            if(this.action == 'rdfa') {
+                                opts.about = this.getInput().about.value;
+                                opts.rel = this.getInput().rel.value;
+                                opts.href = this.getInput().href.value;
+                            }
+                            else {
+                                opts.url = this.getInput().value;
+                            }
 
                             if (this.linkValidation) {
                                 opts.url = this.checkLinkFormat(opts.url);
@@ -3533,10 +3588,11 @@ LIMIT 1";
 
                             var noteType = '';
                             var noteData = {};
+                            var note = '';
 
                             switch(this.action) {
                                 //External Note
-                                default: //'note'
+                                case 'article': //'note'
                                     //XXX: Experimental: We don't change the source, only refer to it because that's cool.
                                     // ref = '<span class="ref" about="[this:#' + refId + ']" typeof="http://purl.org/dc/dcmitype/Text"><mark id="'+ refId +'" property="schema:description">' + this.base.selection + '</mark><sup class="ref-annotation"><a rel="cito:hasReplyFrom" href="#' + id + '">' + refLabel + '</a></sup></span>';
 
@@ -3577,6 +3633,7 @@ LIMIT 1";
                                         noteData.creator["image"] = DO.C.User.Image;
                                     }
 
+                                    note = DO.U.createNoteHTML(noteData);
                                     break;
 
                                 //Internal Note
@@ -3595,23 +3652,41 @@ LIMIT 1";
                                         "body": opts.url //FIXME: This object name is not fun
                                     }
 
+                                    note = DO.U.createNoteHTML(noteData);
                                     break;
                                 // case 'reference':
                                 //     ref = '<span class="ref" about="[this:#' + refId + ']" typeof="http://purl.org/dc/dcmitype/Text"><span id="'+ refId +'" property="schema:description">' + this.base.selection + '</span> <span class="ref-reference">' + DO.C.RefType[DO.C.DocRefType].InlineOpen + '<a rel="cito:isCitedBy" href="#' + id + '">' + refLabel + '</a>' + DO.C.RefType[DO.C.DocRefType].InlineClose + '</span></span>';
+//                                    break;
+
+                                case 'rdfa':
+                                    //TODO: inlist, prefix, monkeys..
+                                    //TODO: lang, datatype, content
+                                    noteData = {
+                                        about: opts.about,
+                                        //typeOf: opts.typeOf,
+                                        rel: opts.rel,
+                                        // property: opts.property
+                                        href: opts.href,
+                                        // resource:
+                                        // content:
+                                        textContent: this.base.selection
+                                        // lang: ''
+                                        // datatype: ''
+                                    };
+                                    ref = DO.U.createRDFaHTML(noteData);
+
                                     break;
                             }
-                //            console.log(note);
+// console.log(note);
 
-// console.log('createNoteHTML to save');
-                            console.log(noteData);
-                            var note = DO.U.createNoteHTML(noteData);
+console.log(noteData);
 
-                            //XXX: What's my purpose?
+
                             var selectionUpdated = ref;
                             MediumEditor.util.insertHTMLCommand(this.base.selectedDocument, selectionUpdated);
 
                             switch(this.action) {
-                                default:
+                                case 'article':
                                     var data = '<!DOCTYPE html>\n\
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">\n\
     <head>\n\
@@ -3707,8 +3782,14 @@ LIMIT 1";
                         // form creation and event handling
                         attachFormEvents: function (form) {
                             var close = form.querySelector('.medium-editor-toolbar-close'),
-                                save = form.querySelector('.medium-editor-toolbar-save'),
-                                input = form.querySelector('.medium-editor-toolbar-textarea');
+                                save = form.querySelector('.medium-editor-toolbar-save');
+
+                            if (this.action == 'rdfa') {
+                                var input = form.querySelector('.medium-editor-toolbar-input');
+                            }
+                            else {
+                                var input = form.querySelector('.medium-editor-toolbar-textarea');
+                            }
 
                             // Handle clicks on the form itself
                             this.on(form, 'click', this.handleFormClick.bind(this));
@@ -3730,6 +3811,7 @@ LIMIT 1";
 
                             // Anchor Form (div)
                             form.className = 'medium-editor-toolbar-form';
+                            //FIXME
                             form.id = 'medium-editor-toolbar-form-textarea-' + this.getEditorId();
                             form.innerHTML = this.getTemplate();
                             this.attachFormEvents(form);
@@ -3738,7 +3820,16 @@ LIMIT 1";
                         },
 
                         getInput: function () {
-                            return this.getForm().querySelector('textarea.medium-editor-toolbar-textarea');
+                            var r = {};
+                            if (this.action == 'rdfa') {
+                                r.about = this.getForm().querySelector('#rdfa-about.medium-editor-toolbar-input');
+                                r.rel = this.getForm().querySelector('#rdfa-rel.medium-editor-toolbar-input');
+                                r.href = this.getForm().querySelector('#rdfa-href.medium-editor-toolbar-input');
+                                return r;
+                            }
+                            else {
+                                return this.getForm().querySelector('textarea.medium-editor-toolbar-textarea');
+                            }
                         },
 
                         getAnchorTargetCheckbox: function () {
