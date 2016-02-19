@@ -151,6 +151,8 @@ h1 {
 margin:0.75em auto 1.25em auto;
 font-family:Arial, sans-serif;
 font-size:1.75em;
+}
+main > article > h1 {
 text-align:center;
 }
 h1 sup,
@@ -920,6 +922,21 @@ margin-bottom:2em;
 }
 body > footer {
 margin-top:2em;
+}
+
+header nav ul {
+text-align:center;
+}
+
+header nav li:first-child:before {
+content: "";
+}
+header nav li:before {
+content: "• ";
+}
+header nav li {
+display: inline;
+list-style-type: none;
 }
 
 .on {

@@ -5,6 +5,7 @@
  * https://github.com/linkeddata/dokieli
  */
 
+var SimpleRDF = ld.SimpleRDF;
 var DO = {
     C: {
         Lang: document.documentElement.lang,
@@ -35,8 +36,8 @@ var DO = {
         EnableStorageButtons: '<button class="local-storage-enable-html">Enable</button>',
         CDATAStart: '//<![CDATA[',
         CDATAEnd: '//]]>',
-        SortableList: (($('head script[src$="html.sortable.min.js"]').length > 0) ? true : false),
-        EditorAvailable: ($('head script[src$="medium-editor.min.js"]').length > 0),
+        SortableList: !!document.querySelector('head script[src$="html.sortable.min.js"]'),
+        EditorAvailable: !!document.querySelector('head script[src$="medium-editor.min.js"]'),
         EditorEnabled: false,
         Editor: {
             headings: ["h1", "h2", "h3", "h4", "h5", "h6"],
@@ -49,10 +50,21 @@ var DO = {
         ProxyURL: 'https://databox.me/,proxy?uri=',
         AuthEndpoint: 'https://databox.me/',
         License: {
-            "CCBYSA": {
-                iri: "http://creativecommons.org/licenses/by-sa/4.0/",
-                name: "CC BY-SA 4.0"
-            }
+            "NoLicense": "No license",
+            "http://creativecommons.org/publicdomain/zero/1.0/": "CC0 1.0",
+            "http://creativecommons.org/licenses/by/4.0/": "CC BY 4.0",
+            "http://creativecommons.org/licenses/by-sa/4.0/": "CC BY-SA 4.0",
+            "http://creativecommons.org/licenses/by-nc/4.0/": "CC BY-NC 4.0",
+            "http://creativecommons.org/licenses/by-nd/4.0/": "CC BY-ND 4.0",
+            "http://creativecommons.org/licenses/by-nc-sa/4.0/": "CC NC-SA 4.0",
+            "http://creativecommons.org/licenses/by-nc-nd/4.0/": "CC NC-ND 4.0",
+            "https://creativecommons.org/publicdomain/zero/1.0/": "CC0 1.0",
+            "https://creativecommons.org/licenses/by/4.0/": "CC BY 4.0",
+            "https://creativecommons.org/licenses/by-sa/4.0/": "CC BY-SA 4.0",
+            "https://creativecommons.org/licenses/by-nc/4.0/": "CC BY-NC 4.0",
+            "https://creativecommons.org/licenses/by-nd/4.0/": "CC BY-ND 4.0",
+            "https://creativecommons.org/licenses/by-nc-sa/4.0/": "CC NC-SA 4.0",
+            "https://creativecommons.org/licenses/by-nc-nd/4.0/": "CC NC-ND 4.0"
         },
         Vocab: {
             "rdftype": {
@@ -140,6 +152,11 @@ var DO = {
                 "@id": "http://www.w3.org/ns/solid/terms#Notification",
                 "@type": "@id"
             },
+
+            "oaannotation": {
+                "@id": "http://www.w3.org/ns/oa#Annotation",
+                "@type": "id"
+            },
             "oahasBody": {
                 "@id": "http://www.w3.org/ns/oa#hasBody",
                 "@type": "@id"
@@ -168,10 +185,31 @@ var DO = {
                 "@id": "http://www.w3.org/ns/oa#annotatedBy",
                 "@type": "@id"
             },
+
+            "asobject": {
+                "@id": "http://www.w3.org/ns/activitystreams#object",
+                "@type": "id",
+                "@array": true
+            },
+            "astarget": {
+                "@id": "http://www.w3.org/ns/activitystreams#target",
+                "@type": "id",
+                "@array": true
+            },
+            "ascontext": {
+                "@id": "http://www.w3.org/ns/activitystreams#context",
+                "@type": "id",
+                "@array": true
+            },
+
             "ldpcontains": {
                 "@id": "http://www.w3.org/ns/ldp#contains",
                 "@type": "@id",
                 "@array": true
+            },
+            "ldpresource": {
+                "@id": "http://www.w3.org/ns/ldp#Resource",
+                "@type": "@id"
             }
         }
     },
@@ -237,7 +275,7 @@ var DO = {
         },
 
         authenticateUserFallback: function(url, proxyURL, reasons) {
-            console.log("Try to authenticating through WebID's storage, if not found, try through a known authentication endpoint");
+// console.log("Try to authenticating through WebID's storage, if not found, try through a known authentication endpoint");
             url = url || window.location.origin + window.location.pathname;
 
             var pIRI = url;
@@ -249,13 +287,13 @@ var DO = {
             pIRI = DO.U.stripFragmentFromString(pIRI);
 
             return new Promise(function(resolve, reject) {
-                SimpleRDF(DO.C.Vocab, pIRI).get().then(
+                SimpleRDF(DO.C.Vocab, pIRI, null, ld.store).get().then(
                     function(i) {
                         var s = i.child(url);
-                        console.log(s.storage);
-                        if (s.storage && s.storage.length > 0) {
-                            console.log("Try through WebID's storage: " + s.storage[0]);
-                            return DO.U.getResourceHeadUser(s.storage[0]);
+// console.log(s.storage);
+                        if (s.storage && s.storage._array.length > 0) {
+// console.log("Try through WebID's storage: " + s.storage.at(0));
+                            return DO.U.getResourceHeadUser(s.storage.at(0));
                         }
                         else {
                             console.log("---1 WebID's storage NOT FOUND");
@@ -277,7 +315,7 @@ var DO = {
                         resolve(i);
                     },
                     function(reason) {
-                        console.log('Try through known authentication endpoint');
+// console.log('Try through known authentication endpoint');
                         DO.U.getResourceHeadUser(DO.C.AuthEndpoint).then(
                             function(i) {
                                 return resolve(i);
@@ -305,7 +343,7 @@ var DO = {
                         if (this.status === 200) {
                             var user = this.getResponseHeader('User');
                             if (user && user.length > 0 && user.slice(0, 4) == 'http') {
-                                console.log('User: ' + user);
+// console.log('User: ' + user);
                                 return resolve(user);
                             }
                         }
@@ -321,9 +359,9 @@ var DO = {
             return new Promise(function(resolve, reject) {
                 DO.U.authenticateUser(url).then(
                     function(userIRI) {
-                        console.log('setUser resolve: ' + userIRI);
+// console.log('setUser resolve: ' + userIRI);
                         DO.C.User.IRI = userIRI;
-                        console.log(DO.C.User.IRI);
+// console.log(DO.C.User.IRI);
                         return resolve(userIRI);
                     },
                     function(xhr) {
@@ -335,7 +373,7 @@ var DO = {
         },
 
         setUserInfo: function(userIRI) {
-            console.log("setUserInfo: " + userIRI);
+// console.log("setUserInfo: " + userIRI);
             if (userIRI) {
                 var pIRI = userIRI;
 
@@ -345,37 +383,37 @@ var DO = {
                 if (document.location.protocol == 'https:' && pIRI.slice(0, 5).toLowerCase() == 'http:') {
                     pIRI = DO.C.ProxyURL + DO.U.encodeString(pIRI);
                 }
-                console.log("pIRI: " + pIRI);
+// console.log("pIRI: " + pIRI);
 
                 return new Promise(function(resolve, reject) {
-                    SimpleRDF(DO.C.Vocab, pIRI).get().then(
+                    SimpleRDF(DO.C.Vocab, pIRI, null, ld.store).get().then(
                         function(i) {
                             var s = i.child(userIRI);
-                            console.log(s);
+// console.log(s);
                             if (s.foafname) {
                                 DO.C.User.Name = s.foafname;
-                                console.log(DO.C.User.Name);
+// console.log(DO.C.User.Name);
                             }
                             else {
                                 if (s.schemaname) {
                                     DO.C.User.Name = s.schemaname;
-                                    console.log(DO.C.User.Name);
+// console.log(DO.C.User.Name);
                                 }
                             }
 
                             if (s.foafimg) {
                                 DO.C.User.Image = s.foafimg;
-                                console.log(DO.C.User.Image);
+// console.log(DO.C.User.Image);
                             }
                             else {
                                 if (s.schemaimage) {
                                     DO.C.User.Image = s.schemaimage;
-                                    console.log(DO.C.User.Image);
+// console.log(DO.C.User.Image);
                                 }
                             }
 
                             if (s.storage) {
-                                DO.C.User.Storage = s.storage;
+                                DO.C.User.Storage = s.storage._array;
                                 console.log(DO.C.User.Storage);
                             }
                             if (s.preferencesFile && s.preferencesFile.length > 0) {
@@ -383,7 +421,7 @@ var DO = {
                                 console.log(DO.C.User.PreferencesFile);
 
                                 //XXX: Probably https so don't bother with proxy?
-                                SimpleRDF(DO.C.Vocab, s.preferencesFile).get().then(
+                                SimpleRDF(DO.C.Vocab, s.preferencesFile, null, ld.store).get().then(
                                     function(pf) {
                                         DO.C.User.PreferencesFileGraph = pf;
                                         var s = pf.child(userIRI);
@@ -393,10 +431,10 @@ var DO = {
                                         }
 
                                         if (s.workspace) {
-                                            DO.C.User.Workspace = { List: s.workspace };
+                                            DO.C.User.Workspace = { List: s.workspace._array };
                                             //XXX: Too early to tell if this is a good/bad idea. Will revise any way. A bit hacky right now.
-                                            s.workspace.forEach(function(workspace) {
-                                                var wstype = pf.child(workspace).rdftype || [];
+                                            s.workspace._array.forEach(function(workspace) {
+                                                var wstype = pf.child(workspace).rdftype._array || [];
                                                 wstype.forEach(function(w) {
                                                     switch(w) {
                                                         case 'http://www.w3.org/ns/pim/space#PreferencesWorkspace':
@@ -533,17 +571,17 @@ var DO = {
 
             url = DO.U.stripFragmentFromString(url);
 
-//            console.log(pIRI);
-//            console.log(subjectIRI);
+// console.log(url);
+// console.log(subjectIRI);
 
             return new Promise(function(resolve, reject) {
                 //FIXME: This doesn't work so well if the document's URL is different than input url
-                SimpleRDF(DO.C.Vocab, url).get().then(
+                SimpleRDF(DO.C.Vocab, url, null, ld.store).get().then(
                     function(i) {
                         var s = i.child(subjectIRI);
-                        if (s.solidinbox.length > 0) {
-//                            console.log(s.solidinbox);
-                            return resolve(s.solidinbox);
+                        if (s.solidinbox._array.length > 0) {
+                            console.log(s.solidinbox._array);
+                            return resolve(s.solidinbox._array);
                         }
                         var reason = {"message": "Inbox was not found"};
                         return Promise.reject(reason);
@@ -561,13 +599,12 @@ var DO = {
             var notifications = [];
 
             return new Promise(function(resolve, reject) {
-                SimpleRDF(DO.C.Vocab, url).get().then(
+                SimpleRDF(DO.C.Vocab, url, null, ld.store).get().then(
                     function(i) {
                         var s = i.child(url);
                         s.ldpcontains.forEach(function(resource) {
-                            var types = s.child(resource).rdftype;
-                            var n = types.indexOf(DO.C.Vocab.solidnotification["@id"]);
-                            if(n >= 0) {
+                            var types = s.child(resource).rdftype._array;
+                            if(types.indexOf(DO.C.Vocab.ldpresource["@id"]) >= 0) {
                                 notifications.push(resource);
                             }
                         });
@@ -592,11 +629,11 @@ var DO = {
             url = url || window.location.origin + window.location.pathname;
 
             return new Promise(function(resolve, reject) {
-                var g = SimpleRDF(DO.C.Vocab, url).get().then(
+                var g = SimpleRDF(DO.C.Vocab, url, null, ld.store).get().then(
                     function(i) {
                         var s = i.child(url);
-                        if (s.pingbackproperty == DO.C.Vocab.oahasTarget["@id"] && s.pingbacktarget == window.location.origin + window.location.pathname) {
-                            return resolve(s.pingbacksource);
+                        if (s.ascontext.at(0) == DO.C.Vocab.oahasTarget["@id"] && s.astarget.at(0).indexOf(window.location.origin + window.location.pathname) >= 0) {
+                            return resolve(s.asobject.at(0));
                         }
                         else {
                             return Promise.reject({'message': 'Notification source not found'});
@@ -611,16 +648,18 @@ var DO = {
         },
 
         showInboxNotifications: function() {
-            DO.U.getInbox().then(
-                function(i) {
-                    i.forEach(function(inbox) {
-                        DO.U.showNotificationSources(inbox);
-                    });
-                },
-                function(reason) {
-                    console.log(reason);
-                }
-            );
+            if (typeof SimpleRDF !== 'undefined') {
+                DO.U.getInbox().then(
+                    function(i) {
+                        i.forEach(function(inbox) {
+                            DO.U.showNotificationSources(inbox);
+                        });
+                    },
+                    function(reason) {
+                        console.log(reason);
+                    }
+                );
+            }
         },
 
         showNotificationSources: function(url) {
@@ -808,7 +847,7 @@ var DO = {
 
                     DO.U.putResource(url, data, 'text/turtle; charset=utf-8').then(
                         function(i) {
-//                            console.log(i);
+// console.log(i);
                             return resolve(i);
                         },
                         function(reason) {
@@ -823,18 +862,23 @@ var DO = {
             }
         },
 
-        notifyInbox: function(url, slug, source, property, target) {
+        notifyInbox: function(url, slug, source, context, target, licenseIRI) {
             var data = '@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n\
-@prefix sterms: <http://www.w3.org/ns/solid/terms#> .\n\
-@prefix pingback: <http://purl.org/net/pingback/> .\n\
+@prefix as: <http://www.w3.org/ns/activitystreams#> .\n\
 @prefix schema: <https://schema.org/> .\n\
-<> a sterms:Notification , pingback:Request ;\n\
-    pingback:source <' + source + '> ;\n\
-    pingback:property <' + property + '> ;\n\
-    pingback:target <' + target + '> ;\n\
-    schema:dateModified "' + DO.U.getDateTimeISO() + '"^^xsd:dateTime ;\n\
-    schema:creator <' + DO.C.User.IRI + '> ;\n\
-    schema:license <' + DO.C.License.CCBYSA.iri + '> .\n\
+<> a as:Announce\n\
+    ; as:object <' + source + '>\n\
+    ; as:context <' + context + '>\n\
+    ; as:target <' + target + '>\n\
+    ; as:updated "' + DO.U.getDateTimeISO() + '"^^xsd:dateTime\n\
+    ; as:actor <' + DO.C.User.IRI + '>\n\
+';
+
+            if (licenseIRI != '') {
+                data += '    ; schema:license <' + licenseIRI + '>\n\
+';
+            }
+            data += '    .\n\
 ';
 
             return DO.U.postResource(url, slug, data, 'text/turtle; charset=utf-8');
@@ -857,26 +901,25 @@ var DO = {
                 }
                 if (DO.U.urlParam('edit') == 'true') {
                     var url = document.location.href;
-                    url = url.substr(0, url.lastIndexOf('?'));
-                    if (!url.endsWith('/new')) {
-                        window.history.replaceState({}, null, url);
-                    }
+                    window.history.replaceState({}, null, url.substr(0, url.lastIndexOf('?')));
                 }
             }
         },
 
         //TODO: Refactor
         showUserSigninSignup: function(node) {
-            var s = '';
-            if(DO.C.User.IRI) {
-                s+= DO.U.getUserHTML();
-            }
-            else {
-                s+= '<button class="signin-user">Sign in</button>';
-            }
-            $(node).append('<p id="user-signin-signup">' + s + '</p>');
+            if (typeof SimpleRDF !== 'undefined') {
+                var s = '';
+                if(DO.C.User.IRI) {
+                    s+= DO.U.getUserHTML();
+                }
+                else {
+                    s+= '<button class="signin-user">Sign in</button>';
+                }
+                $(node).append('<p id="user-signin-signup">' + s + '</p>');
 
-            $('#document-menu.do').off('click', 'button.signin-user').on('click', 'button.signin-user', DO.U.showUserIdentityInput);
+                $('#document-menu.do').off('click', 'button.signin-user').on('click', 'button.signin-user', DO.U.showUserIdentityInput);
+            }
         },
 
         //TODO: Refactor
@@ -891,12 +934,22 @@ var DO = {
             });
 
             $('#user-identity-input').on('click', 'button.signin', DO.U.submitSignIn);
-            $('#user-identity-input').on('keyup', 'input#webid', function(e){
-                var input = $(this).val();
-                var button = $('#user-identity-input button.signin');
+            $('#user-identity-input').on('keyup cut paste input', 'input#webid', 'button.signin', DO.U.enableDisableButton);
+;
+            $('#user-identity-input input#webid').focus();
+        },
 
+        //TODO: Generalize this further so that it is not only for submitSignIn
+        enableDisableButton: function(e) {
+            var x = $(e.delegateTarget);
+            var button = x.find(e.data);
+            var delay = (e.type == 'cut' || e.type == 'paste') ? 250 : 0;
+            var input = '';
+
+            window.setTimeout(function () {
+                input = x.find('#' + e.target.id).val();
                 if (input.length > 10 && input.match(/^https?:\/\//g)) {
-                    if (e.which == 13) {
+                    if (typeof e.which !== 'undefined' && e.which == 13) {
                         if(!button.prop('disabled')) {
                             button.prop('disabled', 'disabled');
                             e.preventDefault();
@@ -913,9 +966,7 @@ var DO = {
                         button.prop('disabled', 'disabled');
                     }
                 }
-            });
-
-            $('#user-identity-input input#webid').focus();
+            }, delay);
         },
 
         submitSignIn: function() {
@@ -952,12 +1003,10 @@ var DO = {
                     function(i) {
                         DO.U.setUserInfo(i).then(
                             function(i) {
-                                console.log("--- USER INFO SET");
-                                console.log(i);
+// console.log(i);
                                 $('#user-signin-signup').html(DO.U.getUserHTML());
                             },
                             function(reason) {
-                                console.log("--- USER INFO NOT SET");
                                 console.log(reason);
                             }
                         );
@@ -1065,6 +1114,12 @@ var DO = {
                         else {
                             $(this).prop({'rel': 'stylesheet alternate'});
                         }
+
+                        $('span.ref').each(function(i){
+                            var refId = $(this).find('mark').prop('id');
+                            var noteId = $(this).find('a').text();
+                            DO.U.positionNote(refId, noteId, noteId);
+                        });
                     });
 
                     $('#views.do button:disabled').removeAttr('disabled');
@@ -1137,7 +1192,6 @@ var DO = {
                 scriptCurrent.each(function(i, v) {
                     var id = $(v).prop('id');
                     scriptCurrentData[id] = $(v).html().split(/\r\n|\r|\n/);
-                    console.log(scriptCurrentData[id]);
                     scriptCurrentData[id].shift();
                     scriptCurrentData[id].pop();
                     scriptCurrentData[id] = {
@@ -1263,6 +1317,7 @@ var DO = {
                 <caption>Document Metadata</caption>\n\
                 <tbody>\n\
                     <tr><th>Authors</th><td>' + contributors + '</td></tr>\n\
+                    <tr><th>Reading time</th><td>' + count.readingTime + ' minutes</td></tr>\n\
                     <tr><th>Characters</th><td>' + count.chars + '</td></tr>\n\
                     <tr><th>Words</th><td>' + count.words + '</td></tr>\n\
                     <tr><th>Lines</th><td>' + count.lines + '</td></tr>\n\
@@ -1276,11 +1331,12 @@ var DO = {
         },
 
         contentCount: function(c) {
-            var content = c.text();
-            var contentCount = { words:0, chars:0, lines:0, pages:{A4:1, USLetter:1}, bytes:0 };
+            var content = c.text().trim();
+            var contentCount = { readingTime:1, words:0, chars:0, lines:0, pages:{A4:1, USLetter:1}, bytes:0 };
             if (content.length > 0) {
                 var linesCount = Math.ceil(c.height() / parseInt(c.css('line-height')));
                 contentCount = {
+                    readingTime: Math.ceil(content.split(' ').length / 200),
                     words: content.match(/\S+/g).length,
                     chars: content.length,
                     lines: linesCount,
@@ -1568,7 +1624,31 @@ var DO = {
             $(document).on({
                 mouseenter: function () {
                     if($('#'+this.id+' > .do.fragment').length == 0 && this.parentNode.nodeName.toLowerCase() != 'aside'){
-                        $('#'+this.id).prepend('<span class="do fragment" style="height:' + this.clientHeight + 'px; "><a href="#' + this.id + '">' + '🔗' + '</a></span>');
+                        var sign;
+                        switch(this.nodeName.toLowerCase()) {
+                            default:        sign = '🔗'; break;
+                            case 'section':
+                                switch (this.id) {
+                                    default:                  sign = '§'; break;
+                                    case 'references':        sign = '☛'; break;
+                                    case 'acknowledgements':  sign = '☺'; break;
+                                    case 'results':           sign = '∞'; break;
+                                    case 'related-work':      sign = '⌘'; break;
+                                    case 'keywords':          sign = '🏷'; break;
+                                    case 'conclusions':       sign = '∴'; break;
+                                }
+                                break;
+                            case 'aside':   sign = '†'; break;
+                            case 'p':       sign = '¶'; break;
+                            case 'pre':     sign = '🖩'; break;
+                            case 'nav':     sign = '☛'; break;
+                            case 'figure':  sign = '❦'; break;
+                            case 'img':     sign = '🖼'; break;
+                            case 'video':   sign = '🎞'; break;
+                            case 'audio':   sign = '🔊'; break;
+                            case 'footer':  sign = '⸙'; break;
+                        }
+                        $('#'+this.id).prepend('<span class="do fragment" style="height:' + this.clientHeight + 'px; "><a href="#' + this.id + '">' + sign + '</a></span>');
                         var fragment = $('#'+this.id+' > .do.fragment');
                         var fragmentClientWidth = fragment.get(0).clientWidth;
                         fragment.css({
@@ -1582,7 +1662,7 @@ var DO = {
                     $('#'+this.id+' > .do.fragment').remove();
                     $('#'+this.id).filter('[class=""]').removeAttr('class');
                 }
-            }, '#content *[id], #interactions *[id]');
+            }, '#content *[id], #document-interactions *[id]');
         },
 
         forceTrailingSlash: function(aString) {
@@ -1596,7 +1676,7 @@ var DO = {
 
         getGraph: function(url) {
             return new Promise(function(resolve, reject) {
-                SimpleRDF(DO.C.Vocab, url).get().then(
+                SimpleRDF(DO.C.Vocab, url, null, ld.store).get().then(
                     function(i){
                        return resolve(i);
                     },
@@ -1644,10 +1724,14 @@ var DO = {
                     for (var i = 0; i < node.childNodes.length; i++) out += dumpNode(node.childNodes[i]);
                 }
                 else if (1 === node.nodeType) {
-                    if (!(node.hasAttribute('class') && (node.getAttribute('class').split(' ').indexOf('do') > -1 || node.getAttribute('class').split(' ').indexOf('firebugResetStyles') > -1))) {
+                    if (node.hasAttribute('class') && node.classList.contains('do') && node.classList.contains('ref')) {
+                        out += node.querySelector('mark').textContent;
+                    }
+                    else if (!(node.hasAttribute('class') && (node.classList.contains('do') || node.classList.contains('firebugResetStyles')))) {
                         var ename = node.nodeName.toLowerCase() ;
                         out += "<" + ename ;
-                        //XXX: Regardless of the location of @lang, ends up at the end
+
+                        var attrList = [];
                         for (var i = node.attributes.length - 1; i >= 0; i--) {
                             var atn = node.attributes[i];
                             if (skipAttributes[atn.name]) continue;
@@ -1656,9 +1740,17 @@ var DO = {
                                 atn.value = atn.value.replace(/(on-document-menu)/, '').trim();
                             }
                             if (!(atn.name == 'class' && atn.value == '')) {
-                                out += ' ' + atn.name + "=\"" + DO.U.htmlEntities(atn.value) + "\"";
+                                attrList.push(atn.name + "=\"" + DO.U.htmlEntities(atn.value) + "\"");
                             }
                         }
+
+                        if (attrList.length > 0) {
+                            attrList.sort(function (a, b) {
+                              return a.toLowerCase().localeCompare(b.toLowerCase());
+                            });
+                            out += ' ' + attrList.join(' ');
+                        }
+
                         if (selfClosing[ename]) { out += " />"; }
                         else {
                             out += '>';
@@ -1735,10 +1827,9 @@ var DO = {
             s += '<li><button class="resource-new"'+buttonDisabled+'>New</button></li>';
             s += '<li><button class="resource-save"'+buttonDisabled+'>Save</button></li>';
             s += '<li><button class="resource-save-as">Save As</button></li>';
-            //s += '<li><button class="resource-browser">Browser</button></li>';
 
             s += '<li><button class="resource-export">Export</button></li>';
-            s += '<li><button class="resource-print">⎙ Print</button></li>';
+            s += '<li><button class="resource-print">Print</button></li>';
 
             s += '</ul></section>';
 
@@ -1857,7 +1948,7 @@ var DO = {
                 var resourcesLi = Array();
                 contains.forEach(function(c){
                     var cg = g.child(c);
-                    var types = cg.rdftype;
+                    var types = cg.rdftype._array;
 
                     var path = DO.U.getUrlPath(c);
                     if(types.indexOf('http://www.w3.org/ns/ldp#Container') > -1){
@@ -2018,7 +2109,7 @@ var DO = {
 
                 var html = document.documentElement.cloneNode(true);
                 var baseURLSelectionChecked = newDocument.find('select[name="base-url"]');
-                console.log(baseURLSelectionChecked);
+// console.log(baseURLSelectionChecked);
                 if (baseURLSelectionChecked.length > 0) {
                     var baseURLType = baseURLSelectionChecked.val();
                     var nodes = $(html).find('head link, [src], object[data]');
@@ -2034,7 +2125,7 @@ var DO = {
 
                 DO.U.putResource(storageIRI, html).then(
                     function(i) {
-                        console.log(i);
+// console.log(i);
                         newDocument.append('<div class="response-message"><p class="success">New document created at <a href="' + storageIRI + '?edit=true">' + storageIRI + '</a></p></div>');
                         window.open(storageIRI + '?edit=true', '_blank');
                     },
@@ -2119,8 +2210,7 @@ var DO = {
         getBaseURLSelection: function() {
             var s = '<div id="base-url-selection"><label>Location of media resources:</label>\n\
             <select name="base-url">\n\
-            <option id="base-url-dokieli" value="base-url-dokieli" selected="selected">Use https://dokie.li/</option>\n\
-            <option id="base-url-absolute" value="base-url-absolute">Use current; ' + DO.U.getBaseURL(document.location.href) + '</option>\n\
+            <option id="base-url-absolute" value="base-url-absolute" selected="selected">Use references as is</option>\n\
             <option id="base-url-relative" value="base-url-relative">Copy to your storage</option>\n\
             </select>\n\
             </div>';
@@ -2129,7 +2219,7 @@ var DO = {
         },
 
         rewriteBaseURL: function(nodes, urlType) {
-            urlType = urlType || 'base-url-dokieli';
+            urlType = urlType || 'base-url-absolute';
             if (typeof nodes === 'object' && nodes.length > 0) {
                 nodes.each(function(i, v) {
                     var url = '', ref = '';
@@ -2161,21 +2251,18 @@ var DO = {
         },
 
         setBaseURL: function(url, urlType) {
-            urlType = urlType || 'base-url-dokieli';
+            urlType = urlType || 'base-url-absolute';
             var matches = [];
             var regexp = /(https?:\/\/([^\/]*)\/|file:\/\/\/)?(.*)/;
 
             matches = url.match(regexp);
             if (matches) {
                 switch(urlType) {
-                    case 'base-url-dokieli':  default:
-                        url = 'https://dokie.li/' + matches[3];
-                        break;
-                    case 'base-url-absolute':
-                        url = DO.U.getBaseURL(document.location.href) + matches[3];
+                    case 'base-url-absolute': default:
+                        url = DO.U.getBaseURL(document.location.href) + matches[3].replace(/^\//g, '');
                         break;
                     case 'base-url-relative':
-                        url = matches[3];
+                        url = matches[3].replace(/^\//g, '');
                         break;
                 }
             }
@@ -2204,7 +2291,7 @@ var DO = {
                             var contentType = this.getResponseHeader('Content-Type');
                             DO.U.putResource(toURL, responseText, contentType).then(
                                 function(i) {
-                                    // console.log(i);
+// console.log(i);
                                 },
                                 function(reason) {
                                     console.log(reason);
@@ -2239,7 +2326,7 @@ var DO = {
                 var p = fromURL.slice(0, 4);
                 if (p != 'http' && p != 'file') {
                     var pathToFile = DO.U.setBaseURL(fromURL, 'base-url-relative');
-                    var toURL = baseURL + pathToFile;
+                    var toURL = baseURL + pathToFile.replace(/^\//g, '');
                     DO.U.copyResource(fromURL, toURL);
                }
             });
@@ -2488,19 +2575,18 @@ LIMIT 1";
 
         showRefs: function() {
             $('span.ref').each(function() {
-                console.log(this);
-                var ref = $(this).find('> *[id]').get(0);
-                console.log(ref);
+// console.log(this);
+                var ref = $(this).find('> mark[id]').get(0);
+// console.log(ref);
                 var refId = $(ref).prop('id');
-                console.log(refId);
+// console.log(refId);
                 var refA = $(this).find('[class*=ref-] a');
-                console.log(refA);
+// console.log(refA);
                 refA.each(function() {
                     var noteIRI = $(this).prop('href');
-//                    noteId = noteId.substr(noteId.indexOf("#") + 1);
-                    console.log(noteIRI);
+// console.log(noteIRI);
                     var refLabel = $(this).text();
-                    console.log(refLabel);
+// console.log(refLabel);
 
                     //FIXME: the noteId parameter for positionNote shouldn't
                     //rely on refLabel. Grab it from somewhere else.
@@ -2510,66 +2596,31 @@ LIMIT 1";
         },
 
         positionNote: function(refId, refLabel, noteId) {
-//            console.log('--- positionNote(): ' + refId + ', ' + refLabel + ', ' + noteId);
-            var viewportWidthSplit = Math.ceil(parseInt($(window).width()) / 2);
+            var ref = document.getElementById(refId);
+            var note = document.getElementById(noteId);
 
-            var parentPositionLeft, positionLeftCalc, noteWidth = '';
-
-            var ref = $('#' + refId);
-// console.log(ref);
-// console.log(noteId);
-            var note = $('#' + noteId);
-// console.log(note);
-            var refPP = ref.parent().parent();
-// console.log(refPP);
-
-    //        $('span.note').each(function(i,v) {
-    //            a = $(this).find('a');
-    //            if(a.length > 0) {
-                    noteWidth = Math.ceil(($(window).width() - $('#content').width()) / 2 - 50);
-
-            if (noteWidth >= 150) {
-//                    id = a.attr('href');
-                parentPositionLeft = Math.ceil(refPP.position().left);
-
-// console.log(parentPositionLeft);
-// console.log(viewportWidthSplit);
-                if (parentPositionLeft <= viewportWidthSplit) {
-                    positionRightCalc = parentPositionLeft + 'px + ' + noteWidth + 'px - 20px';
-                }
-                else {
-                    positionRightCalc = parentPositionLeft + 'px + ' + refPP.get(0).clientWidth + 'px + 35px';
-                }
-
-// console.log($(this));
-// console.log($(this).position().top);
-// console.log($(this).offset().top);
-
-// console.log($(this).parent());
-// console.log($(this).parent().parent());
-// console.log($(this).parent().parent().parent());
-
-                var bodyWidthThird = ($('body').get(0).clientWidth) / 3;
-
-                //TODO: If there are articles already in the aside.note , the subsequent top values should come after one another
-                note.css({
-                    'position': 'absolute',
-                    'top': 'calc(' + Math.ceil(ref.parent().position().top) + 'px)',
-                    'left': 'calc(' + positionRightCalc + ' + ' + bodyWidthThird + 'px + 2em)',
-                    'z-index': '1',
-                    'width': (bodyWidthThird) + 'px',
-                    'font-size': '0.9em',
-                    'text-align': 'left'
-                });
+            if (note.hasAttribute('style')) {
+                note.removeAttribute('style');
             }
-    //            }
-    //        });
+
+            //TODO: If there are articles already in the aside.note , the subsequent top values should come after one another
+            var style = [
+                'position: absolute',
+                'top: ' + Math.ceil(ref.parentNode.offsetTop) + 'px',
+                'left: auto',
+                'right: calc(-35% - 2.5em)',
+                'z-index: 1',
+                'width: 35%',
+                'font-size: 0.9em',
+                'text-align: left'
+            ].join('; ');
+            note.setAttribute('style', style);
         },
 
         positionQuoteSelector: function(noteIRI, containerNode) {
             containerNode = containerNode || document.body;
             return new Promise(function(resolve, reject) {
-                SimpleRDF(DO.C.Vocab, noteIRI).get().then(
+                SimpleRDF(DO.C.Vocab, noteIRI, null, ld.store).get().then(
                     function(i) {
                         var note = i.child(noteIRI);
                         var datetime = note.oaAnnotatedAt;
@@ -2588,6 +2639,8 @@ LIMIT 1";
 
                         var source = target.oahasSource;
 
+                        var licenseIRI = note.schemalicense;
+
                         var containerNodeTextContent = containerNode.textContent;
                         var selectorIndex = containerNodeTextContent.indexOf(prefix + exact + suffix);
                         if (selectorIndex >= 0) {
@@ -2595,10 +2648,10 @@ LIMIT 1";
                             var exactEnd = selectorIndex + prefix.length + exact.length;
                             var selection = { start: exactStart, end: exactEnd };
 
-
                             var id = String(Math.abs(DO.U.hashCode(noteIRI))).substr(0, 6);
                             var refId = 'r-' + id;
-                            var ref = '<span class="ref do" about="#' + refId + '" typeof="http://purl.org/dc/dcmitype/Text"><mark id="'+ refId +'" property="schema:description">' + exact + '</mark><sup class="ref-annotation"><a rel="cito:hasReplyFrom" href="#i-' + id + '" resource="' + noteIRI + '">' + id + '</a></sup></span>';
+                            var refLabel = id;
+                            var ref = '<span class="ref do" about="#' + refId + '" typeof="http://purl.org/dc/dcmitype/Text"><mark id="'+ refId +'" property="schema:description">' + exact + '</mark><sup class="ref-annotation"><a rel="cito:hasReplyFrom" href="#' + id + '" resource="' + noteIRI + '">' + id + '</a></sup></span>';
 
                             MediumEditor.selection.importSelection(selection, containerNode, document);
 
@@ -2621,14 +2674,22 @@ LIMIT 1";
                                 }
                             }
 
+                            var resourceIRI = DO.U.stripFragmentFromString(document.location.href);
+
+                            var parentNodeWithId = selectedParentNode.closest('[id]');
+                            var targetIRI = (parentNodeWithId) ? resourceIRI + '#' + parentNodeWithId.id : resourceIRI;
+
                             var noteData = {
                                 "type": 'position-quote-selector', //e.g., 'article'
                                 "purpose": "read",
+                                "motivatedByIRI": "oa:replying",
                                 "id": id,
+                                "refId": refId,
                                 "iri": noteIRI, //e.g., https://example.org/path/to/article
                                 "creator": {},
                                 "datetime": datetime,
                                 "target": {
+                                    "iri": targetIRI,
                                     "source": source,
                                     "selector": {
                                         "exact": exact,
@@ -2638,10 +2699,7 @@ LIMIT 1";
                                     //TODO: state
                                 },
                                 "body": bodyText,
-                                "license": {
-                                    "iri": DO.C.License.CCBYSA.iri,
-                                    "name": DO.C.License.CCBYSA.name
-                                }
+                                "license": {}
                             }
                             if (annotatedByIRI) {
                                 noteData.creator["iri"] = annotatedByIRI;
@@ -2653,30 +2711,23 @@ LIMIT 1";
                                 noteData.creator["image"] = annotatedByImage;
                             }
 
+                            if (licenseIRI) {
+                                noteData.license["iri"] = licenseIRI;
+                            }
+
                             var note = DO.U.createNoteHTML(noteData);
-                            note = '<blockquote id="i-' + id + '" cite="' + noteIRI + '">' + note + '</blockquote>';
-
                             var nES = selectedParentNode.nextElementSibling;
-                            //Check if <aside class="note"> exists
-                            if(nES && nES.nodeName.toLowerCase() == 'aside' && nES.classList.contains('note')) {
-                                var noteNode = DO.U.fragmentFromString(note);
-                                nES.appendChild(noteNode);
-                            }
-                            else {
-                            //XXX: TODO: FIXME: This needs to be revised. Okay, Sarven, but why?
-                                var asideNote = '\n\
-                            <aside class="note">\n\
-                            '+ note + '\n\
-                            </aside>';
-                                var asideNode = DO.U.fragmentFromString(asideNote);
-                                var parentSection = MediumEditor.util.getClosestTag(selectedParentNode, 'section');
-                                parentSection.appendChild(asideNode);
-                                //XXX: Keeping this comment around for emergency
+                            var asideNote = '\n\
+<aside class="note do">\n\
+<blockquote cite="' + noteIRI + '">'+ note + '</blockquote>\n\
+</aside>\n\
+';
+                            var asideNode = DO.U.fragmentFromString(asideNote);
+                            var parentSection = MediumEditor.util.getClosestTag(selectedParentNode, 'section');
+                            parentSection.appendChild(asideNode);
+                            //XXX: Keeping this comment around for emergency
 //                                selectedParentNode.parentNode.insertBefore(asideNode, selectedParentNode.nextSibling);
-                            }
 
-                            var refId = 'r-' + id;
-                            var refLabel = id;
                             DO.U.positionNote(refId, refLabel, id);
 
                             //Perhaps return something more useful?
@@ -2695,76 +2746,116 @@ LIMIT 1";
         },
 
         createNoteHTML: function(n) {
-            //TODO Change to switch()
+// console.log(n);
+
             var published = '';
             var license = '';
-            var creator = '', name = '';
+            var creator = '', authors = '', creatorImage = '';
             var hasTarget = '', annotationTextSelector = '', target = '';
-            var hX = '';
+            var heading, hX;
+            var aAbout = '', aPrefix = '';
+            var license = '';
+
+            var motivatedByIRI = n.motivatedByIRI || '';
+            var motivatedByLabel = n.motivatedByLabel || '';
+            switch(motivatedByIRI) {
+                case 'oa:replying': default:
+                    motivatedByIRI = 'oa:replying';
+                    motivatedByLabel = 'replies';
+                    targetLabel = 'In reply to';
+                    aAbout = '[i:]';
+                    aPrefix = ' prefix="schema: https://schema.org/ oa: http://www.w3.org/ns/oa# as: http://www.w3.org/ns/activitystreams# i: ' + n.iri +'"';
+                    break;
+                case 'oa:describing':
+                    motivatedByIRI = 'oa:describing';
+                    motivatedByLabel = 'describes';
+                    targetLabel = 'Describes';
+                    aAbout = n.id;
+                break;
+            }
 
             switch(n.purpose) {
                 default:
                     hX = 'h3';
                     break;
-                case "write":
+                case 'write':
                     hX = 'h1';
                     break;
             }
 
+            var creatorName = 'Anonymous';
+            if ('creator' in n) {
+                if ('image' in n.creator !== 'undefined') {
+                    creatorImage = '<img rel="schema:image" src="' + n.creator.image + '" width="48" height="48" />';
+                }
+                if ('iri' in n.creator && 'name' in n.creator) {
+                    creatorName = n.creator.name;
+
+                    creator = '<span about="' + n.creator.iri + '" typeof="schema:Person">' + creatorImage + ' <a rel="schema:url" href="' + n.creator.iri + '"><span about="' + n.creator.iri + '" property="schema:name">' + creatorName + '</span></a></span>';
+                }
+                else {
+                    creator = '<span about="[i:#agent]" typeof="schema:Person">' + creatorName + '</span>';
+                }
+
+                authors = '<dl class="author-name"><dt>Authors</dt><dd><span rel="schema:creator oa:annotatedBy as:actor">' + creator + '</span></dd></dl>';
+            }
+
+            heading = '<' + hX + ' property="schema:name">' + creatorName + ' <span rel="oa:motivatedBy" resource="' + motivatedByIRI + '">' + motivatedByLabel + '</span></' + hX + '>';
+
+            published = '<dl class="published"><dt>Published</dt><dd><a href="' + n.iri + '"><time datetime="' + n.datetime + '" datatype="xsd:dateTime" property="oa:annotatedAt schema:datePublished" content="' + n.datetime + '">' + n.datetime.substr(0,19).replace('T', ' ') + '</time></a></dd></dl>';
+
             switch(n.type) {
                 case 'position-quote-selector':
-                    published = '<dl class="published"><dt>Published</dt><dd><a href="' + n.iri + '"><time datetime="' + n.datetime + '" datatype="xsd:dateTime" property="oa:annotatedAt schema:datePublished" content="' + n.datetime + '">' + n.datetime.substr(0,19).replace('T', ' ') + '</time></a></dd></dl>';
-
-                    var creatorName = 'Anonymous';
-                    if (typeof n.creator.image !== 'undefined') {
-                        creatorImage = '<img rel="schema:image" src="' + n.creator.image + '" width="48" height="48" />';
-                    }
-                    if (typeof n.creator.iri !== 'undefined' && typeof n.creator.name !== 'undefined') {
-                        creatorName = '<span about="' + n.creator.iri + '" property="schema:name">' + n.creator.name + '</span>';
-
-                        creator = '<span about="' + n.creator.iri + '" typeof="schema:Person">' + creatorImage + ' <a rel="schema:url" href="' + n.creator.iri + '"> ' + creatorName + '</a></span>';
-                    }
-                    else {
-                        creator = '<span about="[i:#agent]" typeof="schema:Person">' + creatorName + '</span>';
-                    }
-
-                    name = '<' + hX + ' property="schema:name"><span rel="schema:creator oa:annotatedBy as:actor">' + creator + '</span></' + hX + '>';
-
-                    description = '<div property="schema:description" rel="oa:hasBody as:content"><div about="[i:#i]" typeof="oa:TextualBody as:Note" property="oa:text" datatype="rdf:HTML">' + n.body + '</div></div>';
-
                     //TODO: Include `a oa:SpecificResource`?
-                    if (typeof n.target != 'undefined' && typeof n.target.selector != 'undefined') { //note, annotation
+                    if (typeof n.target !== 'undefined' && typeof n.target.selector !== 'undefined') { //note, annotation
                         //FIXME: Could resourceIRI be a fragment URI or *make sure* it is the document URL without the fragment?
                         //TODO: Use n.target.iri?
-                        hasTarget = '<a rel="oa:hasTarget sioc:reply_of as:inReplyTo" href="' + n.target.source + '#TODO-PerhapsClosestParentID" resource="' + n.target.source + '#TODO-PerhapsClosestParentID"><span about="[i:]" rel="oa:motivatedBy" resource="oa:replying">In reply to</span></a>';
 
-                        annotationTextSelector = '<span rel="oa:hasSource" resource="' + n.target.source +'"></span><span rel="oa:hasSelector" typeof="oa:TextQuoteSelector"><span property="oa:prefix" xml:lang="en" lang="">' + n.target.selector.prefix + '</span><mark property="oa:exact" xml:lang="en" lang="">' + n.target.selector.exact + '</mark><span property="oa:suffix" xml:lang="en" lang="">' + n.target.selector.suffix + '</span></span>';
+                        body = '<div property="schema:description" rel="oa:hasBody as:content"><div about="[i:#i]" typeof="oa:TextualBody as:Note" property="oa:text" datatype="rdf:HTML">' + n.body + '</div></div>';
 
-                        target ='<dl class="target"><dt>' + hasTarget + '</dt><dd><blockquote about="' + n.target.source + '#TODO-PerhapsClosestParentID" cite="' + n.target.source + '#TODO-PerhapsClosestParentID">' + annotationTextSelector + '</blockquote></dd></dl>';
+                        hasTarget = '<a rel="oa:hasTarget as:inReplyTo sioc:reply_of" href="' + n.target.iri + '">' + targetLabel + '</a> (<a about="' + n.target.iri + '" typeof="oa:SpecificResource" rel="oa:hasSource" href="' + n.target.source +'">part of</a>)';
+
+                        annotationTextSelector = '<span rel="oa:hasSelector" typeof="oa:TextQuoteSelector"><span property="oa:prefix" xml:lang="en" lang="en">' + n.target.selector.prefix + '</span><mark property="oa:exact" xml:lang="en" lang="en">' + n.target.selector.exact + '</mark><span property="oa:suffix" xml:lang="en" lang="en">' + n.target.selector.suffix + '</span></span>';
+
+                        target ='<dl class="target"><dt>' + hasTarget + '</dt><dd><blockquote about="' + n.target.iri + '" cite="' + n.target.iri + '">' + annotationTextSelector + '</blockquote></dd></dl>';
                     }
                     break;
 
                 case 'footnote':
-                    description = '<dl><dt property="schema:name">' + n.id + '</dt><dd property="schema:description" datatype="rdf:HTML">' + n.body + '</dd></dl>';
+                    body = '<div class="content" property="schema:description" rel="oa:hasBody as:content"><div about="#' + n.id + '" typeof="oa:TextualBody as:Note" property="oa:text" datatype="rdf:HTML">' + n.body + '</div></div>';
+
+                    hasTarget = '<a rel="oa:hasTarget" href="#' + n.refId + '">' + n.refLabel + '</a>';
+
+                    target ='<dl class="target"><dt>' + targetLabel + '</dt><dd>' + hasTarget + '</dd></dl>';
                     break;
 
                 default:
-//                    creator = DO.U.getUserHTML();
                     break;
             }
 
-            if (typeof n.license != 'undefined' && typeof n.license.iri != 'undefined' && typeof n.license.name != 'undefined') {
-                license = '<dl class="license"><dt>License</dt><dd><a rel="schema:license" href="' + n.license.iri + '">' + n.license.name + '</a></dd></dl>';
+            if ('iri' in n.license) {
+                license = '<dl class="license"><dt>License</dt><dd>';
+                if('name' in n.license) {
+                    license += '<a rel="schema:license" href="' + n.license.iri + '">' + n.license.name + '</a>';
+                }
+                else {
+                    var licenseName = (n.license.iri in DO.C.License) ? DO.C.License[n.license.iri] : n.license.iri;
+
+                    license += '<a rel="schema:license" href="' + n.license.iri + '">' + licenseName + '</a>';
+                }
+                license += '</dd></dl>';
             }
 
             var note = '\n\
-            <article id="' + n.id + '" about="[i:]" typeof="oa:Annotation as:Activity" prefix="schema: https://schema.org/ oa: http://www.w3.org/ns/oa# as: http://www.w3.org/ns/activitystreams# i: ' + n.iri +'">\n\
-                ' + published + '\n\
-                ' + license + '\n\
-                ' + name + '\n\
-                ' + description + '\n\
-                ' + target + '\n\
-            </article>';
+<article id="' + n.id + '" about="' + aAbout + '" typeof="oa:Annotation as:Activity"' + aPrefix + '>\n\
+    ' + heading + '\n\
+    ' + authors + '\n\
+    ' + published + '\n\
+    ' + license + '\n\
+    ' + target + '\n\
+    ' + body + '\n\
+</article>\n\
+';
 
             return note;
         },
@@ -2849,7 +2940,7 @@ LIMIT 1";
                                 //Formatting
                                 'h2', 'h3', 'h4',
                                 'em', 'strong',
-            // , 'dl' http://xinha.webfactional.com/browser/trunk/plugins/DefinitionList/definition-list.js?rev=516
+                                // , 'dl' http://xinha.webfactional.com/browser/trunk/plugins/DefinitionList/definition-list.js?rev=516
                                 'orderedlist', 'unorderedlist',
                                 'code', 'pre',
 
@@ -2879,8 +2970,9 @@ LIMIT 1";
                                 // 'del',
                                 // 'ins'
                             ],
+                            //This should use relative units because text zoom in/out
+                            diffLeft: 0,
                             diffTop: -10,
-                            diffLeft: -317, //This should use relative units because text zoom in/out
                             allowMultiParagraphSelection: false
                         },
 
@@ -2995,32 +3087,14 @@ LIMIT 1";
 
                         handleClick: function(event) { //, editable
                 //console.log('DO.U.Editor.Button.handleClick()');
-                console.log(this);
+// console.log(this);
                             event.preventDefault();
                             event.stopPropagation();
-
 
                             var action = this.getAction();
                             var tagNames = this.getTagNames();
                             var button = this.getButton();
-                //console.log(action);
-                //console.log(tagNames);
-                //console.log(button);
 
-                //                var selectedParentElement = MediumEditor.selection.getSelectedParentElement(MediumEditor.selection.getSelectionRange(this.document));
-                //console.log('selectedParentElement');
-                //console.log(selectedParentElement);
-                //                var firstTextNode = MediumEditor.util.getFirstTextNode(selectedParentElement);
-                //console.log('firstTextNode');
-                //console.log(firstTextNode);
-                            // if (MediumEditor.util.getClosestTag(firstTextNode, 'em')) {
-                            //     return this.execAction('unlink');
-                            // }
-
-                //                var node = document.createElement(tagNames[0]);
-                //console.log(node);
-
-                //console.log('isActive: ' + this.isActive() + '-------');
                             if (this.isActive()) {
                                 return this.base.execAction('removeFormat');
                             }
@@ -3030,14 +3104,14 @@ LIMIT 1";
                                 this.base.selectedDocument = this.document;
                                 this.base.selection = MediumEditor.selection.getSelectionHtml(this.base.selectedDocument);
                                 //.replace(DO.C.Editor.regexEmptyHTMLTags, '');
-                                console.log('this.base.selection:');
-                                console.log(this.base.selection);
+// console.log('this.base.selection:');
+// console.log(this.base.selection);
 
                                 var selectedParentElement = this.base.getSelectedParentElement();
-                                console.log('getSelectedParentElement:');
-                                console.log(selectedParentElement);
+// console.log('getSelectedParentElement:');
+// console.log(selectedParentElement);
                                 var parentSection = MediumEditor.util.getClosestTag(selectedParentElement, 'section');
-                                console.log(parentSection);
+// console.log(parentSection);
 
                                 //XXX: DO NOT REMOVE. Saving the selection should be before inserting/updating HTML.
                                 this.base.saveSelection();
@@ -3049,7 +3123,7 @@ LIMIT 1";
                                         for (var i = 0; i < parentSection.childNodes.length; i++) {
                                             parentSectionHeading = parentSection.childNodes[i].nodeName.toLowerCase();
                                             if(DO.C.Editor.headings.indexOf(parentSectionHeading) > 0) {
-                    //                            console.log(parentSectionHeading);
+// console.log(parentSectionHeading);
                                                 break;
                                             }
                                         }
@@ -3084,7 +3158,7 @@ LIMIT 1";
                                             var section = document.createElement('section');
                                             section.id = sectionId;
                                             section.setAttribute('rel', 'schema:hasPart');
-                                            section.setAttribute('resource', '[this:#' + sectionId + ']');
+                                            section.setAttribute('resource', '#' + sectionId);
 // console.log(section);
 
 
@@ -3351,17 +3425,34 @@ LIMIT 1";
 
                         getTemplate: function () {
                             var template = [];
-                            if (this.action == 'rdfa') {
-                                template = [
-                                'about: <input id="rdfa-about" class="medium-editor-toolbar-input" placeholder="http://example.org/foo#bar" /><br/>',
-                                'rel: <input id="rdfa-rel" class="medium-editor-toolbar-input" placeholder="https://schema.org/name"><br/>',
-                                'href <input id="rdfa-href" class="medium-editor-toolbar-input" placeholder="http://example.org/foo#bar" />'
-                                ];
-                            }
-                            else {
-                                template = [
-                                '<textarea cols="20" rows="1" class="medium-editor-toolbar-textarea" placeholder="', this.placeholderText, '"></textarea>'
-                                ];
+                            switch(this.action) {
+                                case 'rdfa':
+                                    template = [
+                                    'about: <input id="rdfa-about" class="medium-editor-toolbar-input" placeholder="http://example.org/foo#bar" /><br/>',
+                                    'rel: <input id="rdfa-rel" class="medium-editor-toolbar-input" placeholder="https://schema.org/name"><br/>',
+                                    'href <input id="rdfa-href" class="medium-editor-toolbar-input" placeholder="http://example.net/baz" />'
+                                    ];
+                                    break;
+                                case 'article':
+                                    template = [
+                                    '<textarea id="article-content" name="content" cols="20" rows="1" class="medium-editor-toolbar-textarea" placeholder="', this.placeholderText, '"></textarea>',
+                                    '<select id="article-license" name="license" class="medium-editor-toolbar-select">',
+                                    '<option value="">No license</option>',
+                                    '<option value="https://creativecommons.org/publicdomain/zero/1.0/" title="Creative Commons Zero">CC0</option>',
+                                    '<option value="https://creativecommons.org/licenses/by/4.0/" title="Creative Commons Attribution" selected="selected">CC BY</option>',
+                                    '<option value="https://creativecommons.org/licenses/by-sa/4.0/" title="Creative Commons Attribution-ShareAlike">CC BY-SA</option>',
+                                    '<option value="https://creativecommons.org/licenses/by-nc/4.0/" title="Creative Commons Attribution-NonCommercial">CC BY-NC</option>',
+                                    '<option value="https://creativecommons.org/licenses/by-nd/4.0/" title="Creative Commons Attribution-NoDerivatives">CC BY-ND</option>',
+                                    '<option value="https://creativecommons.org/licenses/by-nc-sa/4.0/" title="Creative Commons Attribution-NonCommercial-ShareAlike">CC BY-NC-SA</option>',
+                                    '<option value="https://creativecommons.org/licenses/by-nc-nd/4.0/" title="Creative Commons Attribution-NonCommercial-NoDerivates">CC BY-NC-ND</option>',
+                                    '</select>'
+                                    ];
+                                    break;
+                                default:
+                                    template = [
+                                    '<textarea cols="20" rows="1" class="medium-editor-toolbar-textarea" placeholder="', this.placeholderText, '"></textarea>'
+                                    ];
+                                    break;
                             }
 
                             template.push(
@@ -3438,11 +3529,16 @@ LIMIT 1";
 
                             input.value = opts.url;
 
-                            if(this.action == 'rdfa') {
-                                input.about.focus();
-                            }
-                            else {
-                                input.focus();
+                            switch(this.action) {
+                                case 'rdfa':
+                                    input.about.focus();
+                                    break;
+                                case 'article':
+                                    input.content.focus();
+                                    break;
+                                default:
+                                    input.focus();
+                                    break;
                             }
 
                             // If we have a target checkbox, we want it to be checked/unchecked
@@ -3480,13 +3576,19 @@ LIMIT 1";
                                 buttonCheckbox = this.getAnchorButtonCheckbox();
                             var opts = {};
 
-                            if(this.action == 'rdfa') {
-                                opts.about = this.getInput().about.value;
-                                opts.rel = this.getInput().rel.value;
-                                opts.href = this.getInput().href.value;
-                            }
-                            else {
-                                opts.url = this.getInput().value;
+                            switch(this.action) {
+                                case 'rdfa':
+                                    opts.about = this.getInput().about.value;
+                                    opts.rel = this.getInput().rel.value;
+                                    opts.href = this.getInput().href.value;
+                                    break;
+                                case 'article':
+                                    opts.content = this.getInput().content.value;
+                                    opts.license = this.getInput().license.value;
+                                    break;
+                                default:
+                                    opts.url = this.getInput().value;
+                                    break;
                             }
 
                             if (this.linkValidation) {
@@ -3511,7 +3613,7 @@ LIMIT 1";
                         },
 
                         completeFormSave: function (opts) {
-                            console.log('completeFormSave() with this.action: ' + this.action);
+// console.log('completeFormSave() with this.action: ' + this.action);
                             this.base.restoreSelection();
                             var range = MediumEditor.selection.getSelectionRange(this.document);
                             var selectedParentElement = this.base.getSelectedParentElement();
@@ -3572,6 +3674,9 @@ LIMIT 1";
                             //TODO: However this label is created
                             var refLabel = id;
 
+                            var parentNodeWithId = selectedParentElement.closest('[id]');
+                            var targetIRI = (parentNodeWithId) ? resourceIRI + '#' + parentNodeWithId.id : resourceIRI;
+
                             //Role/Capability for Authors/Editors
                             var ref = '', refType = ''; //TODO: reference types. UI needs input
                             //TODO: replace refId and noteIRI IRIs
@@ -3585,26 +3690,30 @@ LIMIT 1";
                             var noteType = '';
                             var noteData = {};
                             var note = '';
+                            var licenseIRI = '';
 
                             switch(this.action) {
                                 //External Note
                                 case 'article': //'note'
                                     //XXX: Experimental: We don't change the source, only refer to it because that's cool.
-                                    // ref = '<span class="ref" about="[this:#' + refId + ']" typeof="http://purl.org/dc/dcmitype/Text"><mark id="'+ refId +'" property="schema:description">' + this.base.selection + '</mark><sup class="ref-annotation"><a rel="cito:hasReplyFrom" href="#' + id + '">' + refLabel + '</a></sup></span>';
 
                                     noteType = 'position-quote-selector';
                                     ref = this.base.selection;
                                     refLabel = id;
+                                    licenseIRI = opts.license;
 
                                     noteData = {
                                         "type": noteType, //e.g., 'article'
                                         "purpose": "write",
+                                        "motivatedByIRI": "oa:replying",
                                         "id": id,
+                                        "refId": refId,
                                         "refLabel": refLabel,
                                         "iri": noteIRI, //e.g., https://example.org/path/to/article
                                         "creator": {},
                                         "datetime": datetime,
                                         "target": {
+                                            "iri": targetIRI,
                                             "source": resourceIRI,
                                             "selector": {
                                                 "exact": exact,
@@ -3613,11 +3722,8 @@ LIMIT 1";
                                             }
                                             //TODO: state
                                         },
-                                        "body": opts.url, //FIXME: This object name is not fun
-                                        "license": {
-                                            "iri": DO.C.License.CCBYSA.iri,
-                                            "name": DO.C.License.CCBYSA.name
-                                        }
+                                        "body": opts.content,
+                                        "license": {}
                                     }
                                     if (DO.C.User.IRI) {
                                         noteData.creator["iri"] = DO.C.User.IRI;
@@ -3628,6 +3734,10 @@ LIMIT 1";
                                     if (DO.C.User.Image) {
                                         noteData.creator["image"] = DO.C.User.Image;
                                     }
+                                    if (opts.license.length > 0) {
+                                        noteData.license["iri"] = opts.license;
+                                        noteData.license["name"] = DO.C.License[opts.license];
+                                    }
 
                                     note = DO.U.createNoteHTML(noteData);
                                     break;
@@ -3636,12 +3746,14 @@ LIMIT 1";
                                 case 'mark': //'footnote':
                                     noteType = 'footnote';
 
-                                    ref = '<span class="ref" about="#' + refId + '" typeof="http://purl.org/dc/dcmitype/Text"><mark id="'+ refId +'" property="schema:description">' + exact + '</mark><sup class="ref-footnote"><a rel="cito:isCitedBy" href="#i-' + id + '">' + refLabel + '</a></sup></span>';
+                                    ref = '<span class="ref" about="#' + refId + '" typeof="http://purl.org/dc/dcmitype/Text"><mark id="'+ refId +'" property="schema:description">' + exact + '</mark><sup class="ref-footnote"><a rel="cito:isCitedBy" href="#' + id + '">' + refLabel + '</a></sup></span>';
 
                                     noteData = {
                                         "type": noteType, //e.g., 'article'
                                         "purpose": "write",
+                                        "motivatedByIRI": "oa:describing",
                                         "id": id,
+                                        "refId": refId,
                                         "refLabel": refLabel,
                                         "iri": noteIRI, //e.g., https://example.org/path/to/article
                                         "datetime": datetime,
@@ -3675,7 +3787,7 @@ LIMIT 1";
                             }
 // console.log(note);
 
-console.log(noteData);
+// console.log(noteData);
 
 
                             var selectionUpdated = ref;
@@ -3698,10 +3810,10 @@ console.log(noteData);
 
                                     DO.U.putResource(noteIRI, data).then(
                                         function(i) {
-                                            console.log(i);
+// console.log(i);
                                             DO.U.positionQuoteSelector(noteIRI, document.body).then(
                                                 function(i) {
-                                                    console.log(i);
+// console.log(i);
                                                 },
                                                 function(reason) {
                                                     console.log(reason);
@@ -3720,10 +3832,10 @@ console.log(noteData);
                                     DO.U.getInbox(resourceIRI).then(
                                         function(inbox) {
                                             if (inbox && inbox.length > 0) {
-                                                console.log('inbox: ' + inbox);
-                                                DO.U.notifyInbox(inbox, id, noteIRI, 'http://www.w3.org/ns/oa#hasTarget', resourceIRI).then(
+// console.log('inbox: ' + inbox);
+                                                DO.U.notifyInbox(inbox, id, noteIRI, 'http://www.w3.org/ns/oa#hasTarget', targetIRI).then(
                                                         function(response) {
-                                                            console.log("Notification: " + response.xhr.getResponseHeader('Location'));
+// console.log("Notification: " + response.xhr.getResponseHeader('Location'));
                                                         },
                                                         function(reason) {
                                                             console.log(reason);
@@ -3742,21 +3854,13 @@ console.log(noteData);
                                     //TODO: Refactor this what's in positionQuoteSelector
 
                                     var nES = selectedParentElement.nextElementSibling;
-                                    //Check if <aside class="note"> exists
-                                    if(nES && nES.nodeName.toLowerCase() == 'aside' && nES.classList.contains('note')) {
-                                        var noteNode = DO.U.fragmentFromString(note);
-                                        nES.appendChild(noteNode);
-                                    }
-                                    else {
-                                    //XXX: TODO: FIXME: This needs to be revised. Okay, Sarven, but why?
-                                        var asideNote = '\n\
-                                    <aside class="note">\n\
-                                    '+ note + '\n\
-                                    </aside>';
-                                        var asideNode = DO.U.fragmentFromString(asideNote);
-                                        var parentSection = MediumEditor.util.getClosestTag(selectedParentElement, 'section');
-                                        parentSection.appendChild(asideNode);
-                                    }
+                                    var asideNote = '\n\
+<aside class="note">\n\
+'+ note + '\n\
+</aside>';
+                                    var asideNode = DO.U.fragmentFromString(asideNote);
+                                    var parentSection = MediumEditor.util.getClosestTag(selectedParentElement, 'section');
+                                    parentSection.appendChild(asideNode);
 
                                     DO.U.positionNote(refId, refLabel, id);
                                     break;
@@ -3817,15 +3921,22 @@ console.log(noteData);
 
                         getInput: function () {
                             var r = {};
-                            if (this.action == 'rdfa') {
-                                r.about = this.getForm().querySelector('#rdfa-about.medium-editor-toolbar-input');
-                                r.rel = this.getForm().querySelector('#rdfa-rel.medium-editor-toolbar-input');
-                                r.href = this.getForm().querySelector('#rdfa-href.medium-editor-toolbar-input');
-                                return r;
+                            switch(this.action) {
+                                case 'rdfa':
+                                    r.about = this.getForm().querySelector('#rdfa-about.medium-editor-toolbar-input');
+                                    r.rel = this.getForm().querySelector('#rdfa-rel.medium-editor-toolbar-input');
+                                    r.href = this.getForm().querySelector('#rdfa-href.medium-editor-toolbar-input');
+                                    break;
+                                case 'article':
+                                    r.content = this.getForm().querySelector('#article-content.medium-editor-toolbar-textarea');
+                                    r.license = this.getForm().querySelector('#article-license.medium-editor-toolbar-select');
+                                    break;
+                                default:
+                                    r = this.getForm().querySelector('textarea.medium-editor-toolbar-textarea');
+                                    break;
                             }
-                            else {
-                                return this.getForm().querySelector('textarea.medium-editor-toolbar-textarea');
-                            }
+
+                            return r;
                         },
 
                         getAnchorTargetCheckbox: function () {
