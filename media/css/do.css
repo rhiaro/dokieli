@@ -240,7 +240,7 @@ background-color: #ccc;
 #browser-contents input[checked="true"] + label {
 font-weight: bold;
 }
-#location-final {
+#location-final, #remote-storage-interactions-location code {
 display: block;
 max-width:24em;
 word-wrap: break-word;
