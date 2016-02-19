@@ -45,7 +45,7 @@ var DO = {
             EnableEditorButton: '<button class="editor-enable">Edit</button>'
         },
         ContextLength: 32,
-        InteractionPath: 'i/',
+        InteractionSlug: 'i/',
         ProxyURL: 'https://databox.me/,proxy?uri=',
         AuthEndpoint: 'https://databox.me/',
         License: {
@@ -955,6 +955,7 @@ var DO = {
                                 console.log("--- USER INFO SET");
                                 console.log(i);
                                 $('#user-signin-signup').html(DO.U.getUserHTML());
+                                DO.U.updateRemoteStorage(DO.U.getSensibleUserStoragePath, {interactions: DO.U.InteractionSlug});
                             },
                             function(reason) {
                                 console.log("--- USER INFO NOT SET");
@@ -995,6 +996,7 @@ var DO = {
             DO.U.showViews(dInfo);
             DO.U.showEmbedData(dInfo);
             DO.U.showStorage(dInfo);
+            DO.U.showRemoteStorage(dInfo);
             DO.U.showDocumentMetadata(dInfo);
             if(!body.hasClass("on-slideshow")) {
                 DO.U.showToC();
@@ -1780,16 +1782,20 @@ var DO = {
             });
         },
 
-        nextLevelButton: function(button, url) {
+        nextLevelButton: function(button, url, resourcesAllowed) {
             var final = document.getElementById('location-final');
             button.addEventListener('click', function(){
                 if(button.parentNode.classList.contains('container')){
                     DO.U.getGraph(url).then(
                         function(g){
                             if(final){
-                                final.textContent = url + "{name}";
+                                if(resourcesAllowed){
+                                    final.textContent = url + "{name}";
+                                }else{
+                                    final.textContent = url;
+                                }
                             }
-                            return DO.U.generateBrowserList(g, url);
+                            return DO.U.generateBrowserList(g, url, resourcesAllowed);
                         },
                         function(reason){
                             var inputBox = document.getElementById('browser-location');
@@ -1814,22 +1820,24 @@ var DO = {
                     document.getElementById('browser-location-input').value = url;
                     var alreadyChecked = button.parentNode.querySelector('input[type="radio"]').checked;
                     var radios = button.parentNode.parentNode.querySelectorAll('input[checked="true"]');
-                    if(final){
-                        final.textContent = url;
-                    }
-                    for(var i = 0; i < radios.length; i++){
-                        radios[i].removeAttribute('checked');
-                    }
-                    if(alreadyChecked){
-                        button.parentNode.querySelector('input[type="radio"]').removeAttribute('checked');
-                    }else{
-                        button.parentNode.querySelector('input[type="radio"]').setAttribute('checked', 'true');
+                    if(resourcesAllowed){
+                        if(final){
+                            final.textContent = url;
+                        }
+                        for(var i = 0; i < radios.length; i++){
+                            radios[i].removeAttribute('checked');
+                        }
+                        if(alreadyChecked){
+                            button.parentNode.querySelector('input[type="radio"]').removeAttribute('checked');
+                        }else{
+                            button.parentNode.querySelector('input[type="radio"]').setAttribute('checked', 'true');
+                        }
                     }
                 }
             }, false);
         },
 
-        generateBrowserList: function(g, url) {
+        generateBrowserList: function(g, url, resourcesAllowed) {
 
             return new Promise(function(resolve, reject){
 
@@ -1885,14 +1893,14 @@ var DO = {
 
                 for(var i = 0; i < buttons.length; i++) {
                     var nextUrl = buttons[i].parentNode.querySelector('input').value;
-                    DO.U.nextLevelButton(buttons[i], nextUrl);
+                    DO.U.nextLevelButton(buttons[i], nextUrl, resourcesAllowed);
                 }
 
                 return resolve(list);
             });
         },
 
-        setupResourceBrowser: function(parent){
+        setupResourceBrowser: function(parent, resourcesAllowed){
 
             parent.insertAdjacentHTML('beforeEnd', '<div id="browser-location"><label for="browser-location-input">URL</label> <input type="text" id="browser-location-input" name="browser-location-input" placeholder="https://example.org/path/to/" /><button id="browser-location-update" disabled="disabled">Browse</button></div>\n\
             <div id="browser-contents"></div>');
@@ -1901,7 +1909,7 @@ var DO = {
                 var inputBox = document.getElementById('browser-location');
                 if (url.length > 10 && url.match(/^https?:\/\//g) && url.slice(-1) == "/"){
                     DO.U.getGraph(url).then(function(g){
-                        DO.U.generateBrowserList(g, url).then(function(l){
+                        DO.U.generateBrowserList(g, url, resourcesAllowed).then(function(l){
                             return l;
                         },
                         function(reason){
@@ -1944,11 +1952,11 @@ var DO = {
                         triggerBrowse(input.value);
                     }
                     if(final){
-                        final.textContent = input.value + "{name}";
+                        final.textContent = input.value
                     }
                 }else{
                     browseButton.disabled = 'disabled';
-                    if(final){
+                    if(resourcesAllowed && final) {
                         final.textContent = input.value;
                     }
                 }
@@ -1966,7 +1974,7 @@ var DO = {
                 var storageUrl = DO.U.forceTrailingSlash(DO.C.User.Storage[0]); // TODO: options for multiple storage
                 input.value = storageUrl;
                 DO.U.getGraph(storageUrl).then(function(g){
-                    DO.U.generateBrowserList(g, storageUrl);
+                    DO.U.generateBrowserList(g, storageUrl, resourcesAllowed);
                 });
             }
 
@@ -1983,7 +1991,7 @@ var DO = {
             */
         },
 
-        showResourceBrowser: function() {
+        showResourceBrowser: function(resourcesAllowed) {
             this.disabled = "disabled";
             var browserHTML = '<aside id="resource-browser" class="do on"><button class="close">❌</button><h2>Resource Browser</h2></aside>';
             document.querySelector('body').insertAdjacentHTML('beforeEnd', browserHTML);
@@ -1992,7 +2000,7 @@ var DO = {
                 document.querySelector('#document-do .resource-browser').removeAttribute('disabled');
             }, false);
 
-            DO.U.setupResourceBrowser(document.getElementById('resource-browser'));
+            DO.U.setupResourceBrowser(document.getElementById('resource-browser'), resourcesAllowed);
 
         },
 
@@ -2005,7 +2013,7 @@ var DO = {
                 $('#document-do .resource-new').removeAttr('disabled');
             });
 
-            DO.U.setupResourceBrowser(document.getElementById('create-new-document'));
+            DO.U.setupResourceBrowser(document.getElementById('create-new-document'), true);
             document.getElementById('browser-location').insertAdjacentHTML('afterBegin', '<p>Choose a location to save your new article.</p>');
             newDocument.append(DO.U.getBaseURLSelection() + '<p>Your new document will be saved at <samp id="location-final">https://example.org/path/to/article</samp></p><button class="create">Create</button>');
             document.getElementById('browser-location-input').focus();
@@ -2067,7 +2075,7 @@ var DO = {
             saveAsDocument.on('click', 'button.close', function(e) {
                 $('#document-do .resource-save-as').removeAttr('disabled');
             });
-            DO.U.setupResourceBrowser(document.getElementById('save-as-document'));
+            DO.U.setupResourceBrowser(document.getElementById('save-as-document'), true);
             document.getElementById('browser-location').insertAdjacentHTML('afterBegin', '<p>Choose a location to save your new article.</p>');
             saveAsDocument.append(DO.U.getBaseURLSelection() + '<p>Your new document will be saved at <samp id="location-final">https://example.org/path/to/article</samp></p><button class="create">Save</button>');
             document.getElementById('browser-location-input').focus();
@@ -2322,10 +2330,73 @@ var DO = {
             }
         },
         
-        showRemoteStorage: function() {
-            // HERENOW
-        }
+        getSensibleUserStoragePath: function() {
+            if (typeof DO.C.User.masterWorkspace != 'undefined' && DO.C.User.masterWorkspace.length > 0) {
+                return DO.C.User.masterWorkspace;
+            } else {
+                if (typeof DO.C.User.Workspace != 'undefined') {
+                    if (typeof DO.C.User.Workspace.Master != 'undefined' && DO.C.User.Workspace.Master.length > 0) {
+                        return DO.C.User.Workspace.Master;
+                    } else {
+                        if (typeof DO.C.User.Workspace.Public != 'undefined' && DO.C.User.Workspace.Public.length > 0) {
+                            return DO.C.User.Workspace.Public;
+                        }
+                    }
+                } else {
+                    return DO.C.User.Storage;
+                }
+            }
+        },
+        showRemoteStorage: function(node) {
+            $(node).append('<section id="remote-storage" class="do"><h2>Remote Storage</h2><div><p id="remote-storage-interactions-location">Your interactions will be saved in <code>(nothing set yet)</code> <span><button id="remote-storage-set-interactions">Change</button></span></p></div></section>');
 
+            // Attempt to set a sensible default
+            var storageLocation;
+            if (DO.C.User.Storage){
+                storageLocation = DO.U.getSensibleUserStoragePath();
+                DO.U.updateRemoteStorage(storageLocation, {interactions: DO.C.InteractionSlug});
+            } // TODO: else, look for document's own storage.
+            document.getElementById('remote-storage-set-interactions').addEventListener('click', DO.U.setInteractionsRemoteStorage);
+            
+        },
+        updateRemoteStorage: function(location, slugs) {
+            fullLocation = location;
+            // Update interactions
+            if(interactions in slugs){
+                fullLocation = location + slugs.interactions;
+            }
+            DO.C.User.InteractionPath = fullLocation;
+            var interactionsLocation = document.getElementById('remote-storage-interactions-location');
+            interactionsLocation.querySelector('code').textContent = fullLocation;
+            
+            // TODO: Update other stuff with locations set here
+        },
+        setInteractionsRemoteStorage: function() {
+            this.disabled = 'disabled';
+            document.querySelector('body').insertAdjacentHTML('beforeEnd', '<aside id="set-remote-storage" class="do on"><button class="close">❌</button><h2>Set Remote Storage for Interactions</h2></aside>');
+
+            var setRemote = document.getElementById('set-remote-storage');
+            setRemote.querySelector('button.close').addEventListener('click', function(e) {
+                document.getElementById('remote-storage-set-interactions').removeAttribute('disabled');
+            }, false);
+
+            DO.U.setupResourceBrowser(setRemote, false);
+            document.getElementById('browser-location').insertAdjacentHTML('afterBegin', '<p>Choose a location to save your interactions with this article.</p>');
+            setRemote.insertAdjacentHTML('beforeEnd', '<p>Your interactions will be saved to <samp id="location-final">https://example.org/path/to/</samp></p><button class="create">Set</button>');
+            var input = document.getElementById('browser-location-input');
+            input.focus();
+            input.placeholder = 'https://example.org/path/to/';
+            var final = document.getElementById('location-final');
+
+            setRemote.querySelector('button.create').addEventListener('click', function(e) {
+                var storage = DO.U.forceTrailingSlash(final.textContent);
+                console.log(storage);
+                DO.U.updateRemoteStorage(storage);
+                // TODO: Check user can actually write here before setting.
+                // TODO: Actually store this somewhere persistent! Preferences etc.
+            }, false);
+        },
+        
         getDateTimeISO: function() {
             var date = new Date();
             return date.toISOString();
@@ -3551,26 +3622,19 @@ LIMIT 1";
 
                             var resourceIRI = DO.U.stripFragmentFromString(document.location.href);
                             //XXX: Temporarily setting this.
+                            //XXX: Shouldn't set this if it's not explictly set by the document owner, should fail to store anonymous interactions.
+                            //.... and in fact should check there's a storage location *before* doing all the stuff above?
                             var containerIRI = window.location.href;
                             containerIRI = containerIRI.substr(0, containerIRI.lastIndexOf('/') + 1);
 
-                            //XXX: Preferring masterWorkspace over the others. Good/bad idea?
-                            //Need more granular workspace selection, e.g., PublicAnnotations. Defaulting to PublicWorkspace if no masterWorkspace
-                            if (typeof DO.C.User.masterWorkspace != 'undefined' && DO.C.User.masterWorkspace.length > 0) {
-                                containerIRI = DO.C.User.masterWorkspace + DO.C.InteractionPath;
+                            if (DO.C.User.InteractionPath){
+                                // Prefer user's choice
+                                containerIRI = DO.C.User.InteractionPath;
+                            }else if(DO.C.InteractionPath){
+                                // Fall back to document owner's choice
+                                containerIRI = DO.C.InteractionPath;
                             }
-                            else {
-                                if (typeof DO.C.User.Workspace != 'undefined') {
-                                    if (typeof DO.C.User.Workspace.Master != 'undefined' && DO.C.User.Workspace.Master.length > 0) {
-                                        containerIRI = DO.C.User.Workspace.Master + DO.C.InteractionPath;
-                                    }
-                                    else {
-                                        if (typeof DO.C.User.Workspace.Public != 'undefined' && DO.C.User.Workspace.Public.length > 0) {
-                                            containerIRI = DO.C.User.Workspace.Public + DO.C.InteractionPath;
-                                        }
-                                    }
-                                }
-                            }
+                            // If there isn't a document place set, assume the owner doesn't want to host annotations, so if the visitor doesn't have their own place they can't comment.
 
                             var noteIRI = containerIRI + id;
                             //TODO: However this label is created
@@ -3714,13 +3778,14 @@ console.log(noteData);
                                         },
                                         function(reason) {
                                             console.log('PUT failed');
-                                            console.log(reason);
+                                            console.log(reason); // TODO: show error; pop up resource browser to choose new location?
                                         }
                                     );
 
 // console.log('resourceIRI: ' + resourceIRI);
 
                                     //TODO: resourceIRI should be the closest IRI (not necessarily the document). Test resolve/reject better.
+                                    // TODO: This should only fire if the annotation was PUT successfully
                                     DO.U.getInbox(resourceIRI).then(
                                         function(inbox) {
                                             if (inbox && inbox.length > 0) {
