@@ -1,0 +1,49 @@
+<article>
+    <h1>Client-side static site generation</h1>
+    <div id="content">
+      <p>When I think of static websites I think of pages served as plain HTML, pretty simple and cross-device friendly. Heavy JS crashes my Chromebook, so I'm a big fan of plain and simple HTML. I know that the hard work of piecing together variable content has already been done on a server somewhere, so my browser needn't be bothered by it.</p>
+      
+      <p>Whilst I despise JS for read-only activities, I acknowledge it might be useful for editing or creating content in pretty, normal-person-friendly ways (ie. that don't involve markdown or jumping between a million form fields for every piece of data). <a href="https://dokie.li">dokieli</a> is a normal-person-friendly article editor (amongst other things) I've been <a href="https://github.com/linkeddata/dokieli">contributing to</a> a bit recently. The editor and the article are all-in-one, and I like it because you only need JS for editing, and content is expected to be published/served/distributed in plain HTML. If you have a <a href="https://github.com/solid">Solid</a> server, dokieli can be used on top of that to edit articles directly on your server, writing back and storing directly as HTML. So if you load a dokieli article with JS off, you can... get this... still read it! Hoorah!</p>
+      
+      <p>However, each dokieli article is stand-alone. That is, if you want a header/footer/menu bar/embedded ads/etc, you have to create these on a per-article basis. Which is fine if you're writing one-off articles or you don't want anything other than the primary content on your page (which is common for authors of academic 'papers' which is where dokieli has its origins). As soon as you want to use dokieli to edit multiple pages on your website or blog, you start gagging for some kind of templating. Or I did, anyway.</p>
+      
+      <p>I quickly googled client-side static site generation, and discovered that people are indeed doing something they are calling client-side static site generation, but of course this actually means that you write a markdown file or something and the data is pulled out and rendered in the right places entirely with JS. So uh... totally blank pages with JS off is not a reading experience I want. The whole beauty of static site generation is that my browser gets some HTML and doesn't have to do much work at all to display it to me. Generating that HTML entirely from JS at read-time seems to be somewhat defeating the purpose.</p>
+      
+      <p>I assume users of static site generators accept that they have to run a script whenever they add new content or update a template. This is typically employed when people don't have a server they can run scripts on, so they run this script locally, compile their HTML pages, and upload to the lazy-server. But running everything locally is a pain. What if you want to write a blog post on the move? A fleeting tweet-type micropost? Do you really want to write, build, upload just for that? (Or <code>git add, commit, push</code> if you're using Github pages). I don't.</p>
+      
+      <p>So what if I could both write my content and run the 'build' script clientside? dokieli already takes care of the first part. Any dokieli article lets you span another instance (either blank or a copy) from itself and start editing right away. If you have a Solid server you can save it there, and keep on editing directly and it is immediately available at the URL you saved it to.</p>
+      
+      <p>The second part is what I'm working on now. With the dokieli architecutre, which assumes decentralisation (ie. articles can be on different servers), one can come at 'building' the static site from two directions.</p>
+      
+      <ul>
+        <li><strong>Template</strong>: I modify the template, say add something to the menu. I need to propagate this change to all content pages which use the template.</li>
+        <li><strong>Content</strong>: I want to tell a content page to use a particular template. I update an article and want to save the changes to the content without screwing up the template. I want to change the template a content page uses and re-build it with that template.</li>
+      </ul>
+      
+      <p>And nothing must require JS to render at read-time.</p>
+      
+      <p>For phase one, I'm keeping it simple. I don't want to start messing about with templates any more complex than 'dump the content in the middle here somewhere', and obviously to save changes all content pages will have to be on Solid servers to which you have write access.</p>
+      
+      <p>So the plan so far, is a template is an HTML page with an empty <code>&lt;main&gt;</code> element which is where the content will go.</p>
+      
+      <p>A content page will always be a complete and stand-alone HTML document. You'll spawn it as normal, from another dokieli instance, and I'll add an option to the DO menu to set a template, which launches the resource browser on your Solid server, from which you can choose a template you made earlier.</p>
+      
+      <p>dokieli then takes the <code>&lt;main&gt;</code> of your content page, replaces the <code>&lt;main&gt;</code> in the template with it, and rewrites your content page with that new HTML.</p>
+      
+      <p>In the background, it adds the content page to a list inside the <code>&lt;main&gt;</code> of the template and writes that back to the server as well (so if you load the template file by itself in a browser, you see the skeleton of the template, containing a list of all pages which use it; you could set this to be only readable by you if you didn't want to repurpose it as a handy index of all your blog posts for example).</p>
+      
+      <p>Then when you want to update the template, you go edit the HTML or whatever (maybe we have an in-browser editor for that too one day, but I'm totally not dealing with it, JS wysiwyg editors are whack) and save it. And then in your browser you open the template and show its own DO menu, which contains a 'build' button. And then you hit that button, and it works its way through the list of URLs in <code>&lt;main&gt;</code> and attempts to rewrite the HTML for all of them with the updated template content (which will, obviously, only work if you are authenticated and have write access to the server(s) they're on. If they're all on the same server as the template you shouldn't get hassled about additionally auth at this point).</p>
+      
+      <p>The mass updating is going to get pretty heavy if you have a lot of pages, but given you shouldn't have to do it very often (only when you update your template) this should be okay..</p>
+      
+      <section id="future">
+        <h2>Future</h2>
+        <div>
+          <ul>
+            <li>Handle multiple variables in the template.</li>
+            <li>Store last 'built' times for all your pages individually so you can selectively update them from the template, eg. if it gets interrupted in the middle of a big list.</li>
+            <li>Shareable templates; with the current plan this would require giving the owner of the template write access to your content, and the owner of the template to give all users write access to the template, which is.. bad. Will ponder. You could perhaps choose a third-party template from a public Solid server as a one-off, but if the template was ever updated you wouldn't get the updates automatically. Possibly it could be rigged to send a notification every time there's a template update and you can choose whether to update all your content pages by hand. Maybe you should clone the third-party template to your own server in the first instance, and just update that, then proceed as normal.</li>
+          </ul>
+        </div>
+    </div>
+</article>
