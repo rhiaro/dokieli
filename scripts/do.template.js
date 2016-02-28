@@ -64,7 +64,7 @@ var TPL = {
               // * replace put into template
               template.querySelector('main').innerHTML = pageMain.innerHTML;
               template.querySelector('title').textContent = pageTitle.textContent;
-              return resolve({url: result.xhr.responseURL, html: template});
+              return resolve({url: result.xhr.responseURL, html: template}); // TODO: get links from headers.. wait do/should I do this? does this get overwritten by server anyway?
           });
       };
     
@@ -75,12 +75,8 @@ var TPL = {
           // * GET page DOM
           TPL.getContent(pages[i].href).then(build).then(
               function(response){
-                  var url = response.url;
-                  var html = response.html;
-                  console.log(url);
-                  console.log(html);
                   // * PUT that back to content page URL
-                  //DO.U.putResource()
+                  DO.U.putResource(response.url, response.html); // HERENOW... do 'then' with this?
                   document.getElementById('template-building').insertAdjacentHTML('beforeEnd', '<li>'+url+'</li>');
               },
               function(reason){
