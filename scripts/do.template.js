@@ -38,9 +38,10 @@ var TPL = {
           http.withCredentials = true;
           http.onreadystatechange = function() {
               if (this.readyState == this.DONE) {
+                  // does this contain headers if any are returned? make sure they are passed along
                   return resolve({xhr: this});
               }
-              // this always gets returned??? (offline tho) fuck it was because of an error in the then jesus christ
+              // this always gets returned??? even though above if gets triggered (offline tho)
               //return reject({status: this.status, xhr: this});
           };
           http.send();
@@ -50,30 +51,43 @@ var TPL = {
   
   
   buildContent: function(){
-    var template = document;
+      
+      var build = function(result){
+          return new Promise(function(resolve, reject){
+              var template = document.documentElement.cloneNode(true);
+              console.log(result);
+              contents = document.createElement('html');
+              contents.innerHTML = result.xhr.response;
+              // * get stuff to put into template
+              var pageMain = contents.querySelector('main');
+              var pageTitle = contents.querySelector('title');
+              // * replace put into template
+              template.querySelector('main').innerHTML = pageMain.innerHTML;
+              template.querySelector('title').textContent = pageTitle.textContent;
+              return resolve({url: result.xhr.responseURL, html: template});
+          });
+      };
+    
     var pages = document.querySelectorAll('main ul a');
     if(pages.length > 0){
       for(var i = 0; i < pages.length; i++){
-        // TODO:
-        // * GET page DOM
-        var url = pages[i].href;
-        TPL.getContent(url).then(
-            function(result) {
-                console.log(result);
-                contents = document.createElement('html'); // TODO: fix
-                contents.innerHTML = result.xhr.response;
-                // * get whats in <main>
-                var pageMain = contents.querySelector('main');
-                // * replace this template's <main> with content page <main>
-                template.querySelector('main').innerHTML = pageMain.innerHTML; // actually do this on a clone probably
-                document.getElementById('template-building').insertAdjacentHTML('beforeEnd', '<li>'+url+'</li>'); // HERENOW url getting lost
-                // * PUT that back to content page URL
-                // ** Update progress template-building list to indicate success or failure of PUT
-            },
-            function(reason) {
-                console.log(reason);
-            }
-        );
+          // TODO:
+          // * GET page DOM
+          TPL.getContent(pages[i].href).then(build).then(
+              function(response){
+                  var url = response.url;
+                  var html = response.html;
+                  console.log(url);
+                  console.log(html);
+                  // * PUT that back to content page URL
+                  //DO.U.putResource()
+                  document.getElementById('template-building').insertAdjacentHTML('beforeEnd', '<li>'+url+'</li>');
+              },
+              function(reason){
+                  console.log('failed to put: ' + reason);
+                  document.getElementById('template-building').insertAdjacentHTML('beforeEnd', '<li><strong>FAIL: </strong>'+url+'</li>');
+              }
+          );
       }
     }else{
       console.log('No pages to build');
