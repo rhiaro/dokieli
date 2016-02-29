@@ -9,13 +9,11 @@ var SimpleRDF = ld.SimpleRDF;
 var TPL = {
   
   getLastModified: function(){
-    // TODO: get from ETag
-    return '?';
+    return document.getElementById('template-modified').getAttribute('datetime');
   },
   
   getLastBuilt: function(){
-    //TODO: not sure where to store this..
-    return '?';
+    return document.getElementById('template-built').getAttribute('datetime');
   },
   
   setLastBuilt: function(time){
@@ -23,7 +21,8 @@ var TPL = {
       time = new Date();
       time = time.toISOString();
     }
-    document.getElementById('template-last-built').textContent = time;
+    document.getElementById('template-built').setAttribute('datetime', time);
+    document.getElementById('template-built').textContent = time;
   },
   
   getContent: function(url){
@@ -54,6 +53,7 @@ var TPL = {
       
       var build = function(result){
           return new Promise(function(resolve, reject){
+              // TODO: find a less horrendously verbose way to get a DOM tree from an html string. Maybe DO.U.getDocument could offer this..?
               var template_html = DO.U.getDocument();
               var template = document.createElement('html');
               template.innerHTML = template_html;
@@ -72,57 +72,61 @@ var TPL = {
               return resolve({url: result.xhr.responseURL, html: template.outerHTML}); // TODO: get links from headers.. wait do/should I do this? does this get overwritten by server anyway?
           });
       };
+      var update_list = function(url, message){
+          console.log(url);
+          document.querySelector('[href="' + url + '"]').parentNode.insertAdjacentHTML('beforeEnd', ' <strong>' + message + '</strong>')
+      };
     
-    var pages = document.querySelectorAll('main ul a');
-    if(pages.length > 0){
-      for(var i = 0; i < pages.length; i++){
-          console.log(pages[i].href);
-          // TODO:
-          // * GET page DOM
-          TPL.getContent(pages[i].href).then(build).then(
-              function(response){
-                  console.log('build response');
-                  console.log(response)
-                  // * PUT that back to content page URL
-                  DO.U.putResource(response.url, response.html).then(function(r){
-                      console.log(r);
-                      document.querySelector('[href="' + r.xhr.responseURL + '"]').parentNode.insertAdjacentHTML('beforeEnd', ' <strong>Built successfully</strong>');
-                  }, function(r){
-                        console.log(r);
-                        var error = "Failed: ";
-                        switch(r.status){
-                            default:
-                                error += "for unknown reasons ("+r.status+")";
-                                break;
-                            case 405:
-                                error += "not writeable";
-                                break;
-                            case 404:
-                                error += "not found";
-                                break;
-                            case 401: case 403:
-                                error += "not authorised";
-                                break;
-                        }
-                        console.log(error); // HERENOW the fail error is broken, document.querySelector is undefined
-                        document.querySelector('[href="' + r.xhr.responseURL + '"]').parentNode.insertAdjacentHTML('beforeEnd', ' <strong>Failed to build</strong> ('+error+')');
-                  });
-              },
-              function(reason){
-                  console.log('failed something: ' + reason);
-                  document.getElementById('template-building').insertAdjacentHTML('beforeEnd', '<li><strong>FAIL: </strong></li>');
-              }
-          );
+      var pages = document.querySelectorAll('main ul a');
+      if(pages.length > 0){
+          for(var i = 0; i < pages.length; i++){
+              console.log(pages[i].href);
+              update_list(pages[i].href, "...building...");
+              TPL.getContent(pages[i].href).then(build).then(
+                  function(response){
+                      console.log('build response');
+                      console.log(response)
+                      // * PUT that back to content page URL
+                      DO.U.putResource(response.url, response.html).then(
+                          function(r){
+                              console.log(r);
+                              update_list(r.xhr.responseURL, "Built successfully");
+                          },
+                          function(r){
+                              console.log(r);
+                              var error = "";
+                              switch(r.status){
+                                  default:
+                                      error += "for unknown reasons ("+r.status+")";
+                                      break;
+                                  case 405:
+                                      error += "not writeable";
+                                      break;
+                                  case 404:
+                                      error += "not found";
+                                      break;
+                                  case 401: case 403:
+                                      error += "not authorised";
+                                      break;
+                              }
+                              update_list(r.xhr.responseURL, "Failed ("+error+")");
+                          }
+                      );
+                  },
+                  function(reason){
+                      update_list(pages[i].href, "Failed ("+reason+")");
+                  }
+              );
+          }
+      }else{
+          console.log('No pages to build');
       }
-    }else{
-      console.log('No pages to build');
-    }
   },
   
   showMenu: function(){
     var lastMod = TPL.getLastModified();
     var lastBuilt = TPL.getLastBuilt();
-    var menu = '<menu class="do on" id="template-menu"><h2>Template</h2><div><p>This is a template</p><section id="template-modified"><h3>Last modified</h3><p><time id="template-last-modified">' + lastMod + '</time></p></section><section id="template-built"><h3>Last built</h3><p><time id="template-last-built">' + lastBuilt + '</time></p><p><button id="build-template">Build now</button></p><ul id="template-building"></ul></section></div></aside>';
+    var menu = '<menu class="do on" id="template-menu"><h2>Template</h2><div><p>This is a template</p><p><button id="build-template">Build now</button></p><ul id="template-building"></ul></section></div></aside>';
     document.querySelector('body').insertAdjacentHTML('beforeEnd', menu);
     
     var doBuild = document.getElementById('build-template');
