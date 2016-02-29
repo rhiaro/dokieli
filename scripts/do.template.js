@@ -54,15 +54,19 @@ var TPL = {
       
       var build = function(result){
           return new Promise(function(resolve, reject){
-              var template = document.documentElement.cloneNode(true);
-              contents = document.createElement('html');
-              contents.innerHTML = result.xhr.response;
+              var template_html = DO.U.getDocument();
+              var template = document.createElement('html');
+              template.innerHTML = template_html;
+              var dom = document.createElement('html');
+              dom.innerHTML = result.xhr.response;
+              var normalised_html = DO.U.getDocument(dom);
+              var contents = document.createElement('html');
+              contents.innerHTML = normalised_html;
               // * get stuff to put into template
               var pageMain = contents.querySelector('main');
               var pageTitle = contents.querySelector('title');
               // * replace put into template
               template.querySelector('#do-template-script').remove();
-              template.querySelector('.do#template-menu').remove();
               template.querySelector('main').innerHTML = pageMain.innerHTML;
               template.querySelector('title').textContent = pageTitle.textContent;
               return resolve({url: result.xhr.responseURL, html: template.outerHTML}); // TODO: get links from headers.. wait do/should I do this? does this get overwritten by server anyway?
