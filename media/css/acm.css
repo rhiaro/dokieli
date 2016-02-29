@@ -440,6 +440,24 @@ dd {
 margin:0 0 0.5em 0;
 }
 
+tfoot dl.abbr dt,
+tfoot dl.abbr dd {
+display:inline;
+text-transform:none;
+}
+tfoot dl.abbr dd:after {
+content:"\A";
+white-space:pre;
+}
+tfoot dl.abbr dt:after {
+content:": ";
+}
+tfoot dl.abbr {
+-webkit-column-count:2;
+-moz-column-count:2;
+column-count:2;
+}
+
 math * {
 padding:0;
 }
@@ -699,6 +717,7 @@ figure.listing pre {
 border:1px solid #000;
 padding:0.5em;
 counter-reset: precode;
+margin-top:0;
 }
 figure.listing pre code:before,
 figure.listing pre samp:before {
@@ -776,6 +795,10 @@ td {
 padding:0.25em;
 text-align:left;
 }
+.comparison-columns tbody td {
+text-align:center;
+}
+
 caption {
 padding:0.25em 0;
 }

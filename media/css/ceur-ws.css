@@ -29,7 +29,8 @@
 /* Modified: 11-Dec-2013/M.Jeusfeld  (CEURWSLOGO div)     */
 /* Modified: 24-Mar-2015/M.Jeusfeld  (paper directories)  */
 /* Modified: 16-Jul-2015/C.Lange     (more accessible link colors) */
-/* Modified: 23-Dec-2015/S.Capadisli (dokieli)     */
+/* Modified: 08-Feb-2016/M.Jeusfeld  (distinguidh AUX from CEURTITLES) */
+/* Modified: 21-Feb-2016/S.Capadisli (dokieli)            */
 
 body {
 font-family: arial, sans-serif;
@@ -80,8 +81,14 @@ PRE {color:#228120}
 
 .CEURTOC {width:90%; page-break-before:always;}    /* table of contents a bit narrower than the total page width */
 
+.CEURAUTHOR {font-style:italic;}
 .CEURAUTHORS {font-style:italic;}
-.AUXAUTHORS {font-style:italic;}
+.AUXAUTHOR {font-style:normal;}
+.AUXAUTHORS {font-style:normal;}
+
+.CEURTITLE {font-weight:normal;}
+.AUXTITLE {font-weight:normal;}
+.CEURTITLE:hover {color: #006040;}   /* proper CEURTITLEs get highlighted */
 
 .CEURVOLNR {font-weight:bold; color:#404040; font-size:large;}
 /* write "CEUR-WS.org/" with background color before the VOLNR */
@@ -118,7 +125,7 @@ article h1 {font-size:2em;}
 h1 span {display:block;}
 .pages {float:right; padding: 2px; font-size:smaller;}
 .pages dt, .authors dt {display:none;}
-.authors {font-style:italic;}
+.authors {font-style:italic; margin:0;}
 .authors dd {display:inline; margin-left:0;}
 .authors dd:not(:empty):after {content:",\0020";}
 .authors dd:last-child:after {content:"";}
@@ -171,10 +178,9 @@ body > header #document-license {
     margin-right:5%;
     text-align:justify;
 }
-body > header #document-license dt {
-    display:none;
-}
+body > header #document-license dt,
 body > header #document-license dd {
+    display:inline;
     margin-left:0;
 }
 article, pre {
@@ -185,13 +191,27 @@ dl {
     -webkit-margin-after:0;
 }
 
-#document-event .CEURFULLTITLE,
-#document-event .CEURCOLOCATEDDESCRIPTION,
-#document-event .CEURLOCATION,
-#document-event .CEURTIME,
-#author-name .CEURVOLEDITOR {
+#document-event {
     font-weight:bold;
     font-size:1.175em;
+}
+
+#document-event .CEURFULLTITLE {
+    padding-top:1.5em;
+    display:block;
+}
+#document-event dd {
+    margin-bottom:1em;
+}
+#document-event dd.CEURLOCATION,
+#document-event dd.CEURTIME {
+    display:inline;
+}
+#document-event dd.CEURLOCATION:after {
+    content:", ";
+}
+#document-event dd.CEURTIME time:after {
+    content:".";
 }
 
 #authors {
@@ -220,7 +240,6 @@ main {
     clear:both;
 }
 main,
-.CEURFULLTITLE,
 #content {
     padding-top:3em;
 }
