@@ -55,33 +55,58 @@ var TPL = {
       var build = function(result){
           return new Promise(function(resolve, reject){
               var template = document.documentElement.cloneNode(true);
-              console.log(result);
               contents = document.createElement('html');
               contents.innerHTML = result.xhr.response;
               // * get stuff to put into template
               var pageMain = contents.querySelector('main');
               var pageTitle = contents.querySelector('title');
               // * replace put into template
+              template.querySelector('#do-template-script').remove();
+              template.querySelector('.do#template-menu').remove();
               template.querySelector('main').innerHTML = pageMain.innerHTML;
               template.querySelector('title').textContent = pageTitle.textContent;
-              return resolve({url: result.xhr.responseURL, html: template}); // TODO: get links from headers.. wait do/should I do this? does this get overwritten by server anyway?
+              return resolve({url: result.xhr.responseURL, html: template.outerHTML}); // TODO: get links from headers.. wait do/should I do this? does this get overwritten by server anyway?
           });
       };
     
     var pages = document.querySelectorAll('main ul a');
     if(pages.length > 0){
       for(var i = 0; i < pages.length; i++){
+          console.log(pages[i].href);
           // TODO:
           // * GET page DOM
           TPL.getContent(pages[i].href).then(build).then(
               function(response){
+                  console.log('build response');
+                  console.log(response)
                   // * PUT that back to content page URL
-                  DO.U.putResource(response.url, response.html); // HERENOW... do 'then' with this?
-                  document.getElementById('template-building').insertAdjacentHTML('beforeEnd', '<li>'+url+'</li>');
+                  DO.U.putResource(response.url, response.html).then(function(r){
+                      console.log(r);
+                      document.querySelector('[href="' + r.xhr.responseURL + '"]').parentNode.insertAdjacentHTML('beforeEnd', ' <strong>Built successfully</strong>');
+                  }, function(r){
+                        console.log(r);
+                        var error = "Failed: ";
+                        switch(r.status){
+                            default:
+                                error += "for unknown reasons ("+r.status+")";
+                                break;
+                            case 405:
+                                error += "not writeable";
+                                break;
+                            case 404:
+                                error += "not found";
+                                break;
+                            case 401: case 403:
+                                error += "not authorised";
+                                break;
+                        }
+                        console.log(error); // HERENOW the fail error is broken, document.querySelector is undefined
+                        document.querySelector('[href="' + r.xhr.responseURL + '"]').parentNode.insertAdjacentHTML('beforeEnd', ' <strong>Failed to build</strong> ('+error+')');
+                  });
               },
               function(reason){
-                  console.log('failed to put: ' + reason);
-                  document.getElementById('template-building').insertAdjacentHTML('beforeEnd', '<li><strong>FAIL: </strong>'+url+'</li>');
+                  console.log('failed something: ' + reason);
+                  document.getElementById('template-building').insertAdjacentHTML('beforeEnd', '<li><strong>FAIL: </strong></li>');
               }
           );
       }
