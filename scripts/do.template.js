@@ -19,7 +19,7 @@ var TPL = {
   setLastBuilt: function(time){
     if(!time){
       time = new Date();
-      time = time.toISOString();
+      time = time.toUTCString();
     }
     document.getElementById('template-built').setAttribute('datetime', time);
     document.getElementById('template-built').textContent = time;
@@ -72,9 +72,15 @@ var TPL = {
               return resolve({url: result.xhr.responseURL, html: template.outerHTML}); // TODO: get links from headers.. wait do/should I do this? does this get overwritten by server anyway?
           });
       };
-      var update_list = function(url, message){
-          console.log(url);
-          document.querySelector('[href="' + url + '"]').parentNode.insertAdjacentHTML('beforeEnd', ' <strong>' + message + '</strong>')
+      var update_list = function(url, message, time){
+          var li = document.querySelector('[href="' + url + '"]').parentNode;
+          if(time){
+              time = new Date();
+              time = time.toUTCString();
+              li.querySelector('time').textContent = ' (' + time + ')';
+              li.querySelector('time').setAttribute('datetime', time);
+          }
+          li.insertAdjacentHTML('beforeEnd', ' <strong class="do">' + message + '</strong>');
       };
     
       var pages = document.querySelectorAll('main ul a');
@@ -90,7 +96,7 @@ var TPL = {
                       DO.U.putResource(response.url, response.html).then(
                           function(r){
                               console.log(r);
-                              update_list(r.xhr.responseURL, "Built successfully");
+                              update_list(r.xhr.responseURL, "Built successfully", true);
                           },
                           function(r){
                               console.log(r);
