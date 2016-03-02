@@ -723,9 +723,11 @@ var DO = {
                 http.withCredentials = true;
                 http.onreadystatechange = function() {
                     if (this.readyState == this.DONE) {
-                        return resolve({xhr: this});
+                        if (this.status === 200 || this.status === 201 || this.status === 204) {
+                                return resolve({xhr: this});
+                            }
+                        return reject({status: this.status, xhr: this});
                     }
-                    return reject({status: this.status, xhr: this});
                 };
                 http.send();
             });
@@ -923,31 +925,29 @@ var DO = {
         },
 
         //TODO: Refactor
-        showUserIdentityInput: function() {
-            $(this).prop('disabled', 'disabled');
-            $('body').append('<aside id="user-identity-input" class="do on"><button class="close">❌</button><h2>Enter WebID to sign in with</h2><label>HTTP(S) IRI</label><input id="webid" type="text" placeholder="http://csarven.ca/#i" value="" name="webid"/> <button class="signin">Sign in</button></aside>');
-
-            $('#user-identity-input button.signin').prop('disabled', 'disabled');
-
-            $('#user-identity-input').on('click', 'button.close', function(e) {
-                $('#document-menu > header .signin-user').removeAttr('disabled');
+        showUserIdentityInput: function(e) {
+            e.target.setAttribute('disabled', 'disabled');
+            document.body.insertAdjacentHTML('beforeend', '<aside id="user-identity-input" class="do on"><button class="close">❌</button><h2>Enter WebID to sign in with</h2><label>HTTP(S) IRI</label><input id="webid" type="text" placeholder="http://csarven.ca/#i" value="" name="webid"/> <button class="signin">Sign in</button></aside>');
+            var buttonSignIn = document.querySelector('#user-identity-input button.signin');
+            buttonSignIn.setAttribute('disabled', 'disabled');
+            document.querySelector('#user-identity-input button.close').addEventListener('click', function(e) {
+                document.querySelector('#document-menu button.signin-user').removeAttribute('disabled');
             });
-
-            $('#user-identity-input').on('click', 'button.signin', DO.U.submitSignIn);
-            $('#user-identity-input').on('keyup cut paste input', 'input#webid', 'button.signin', DO.U.enableDisableButton);
-            $('#user-identity-input input#webid').focus();
+            var inputWebid = document.querySelector('#user-identity-input input#webid');
+            buttonSignIn.addEventListener('click', DO.U.submitSignIn);
+            ['keyup', 'cut', 'paste', 'input'].forEach(function(eventType) {
+                inputWebid.addEventListener(eventType, function(e){ DO.U.enableDisableButton(e, buttonSignIn); });
+            });
+            webid.focus();
         },
 
         //TODO: Generalize this further so that it is not only for submitSignIn
-        enableDisableButton: function(e) {
-            var x = e.delegateTarget;
-            var button = x.querySelector(e.data);
-
+        enableDisableButton: function(e, button) {
             var delay = (e.type == 'cut' || e.type == 'paste') ? 250 : 0;
-            var input = '';
+            var input;
 
             window.setTimeout(function () {
-                input = document.getElementById(e.target.id).value;
+                input = e.target.value;
                 if (input.length > 10 && input.match(/^https?:\/\//g)) {
                     if (typeof e.which !== 'undefined' && e.which == 13) {
                         if(!button.getAttribute('disabled')) {
@@ -982,7 +982,9 @@ var DO = {
                             },
                             function(reason) {
                                 var rm = userIdentityInput.querySelector('.response-message');
-                                rm.parentNode.removeChild(rm);
+                                if (rm) {
+                                    rm.parentNode.removeChild(rm);
+                                }
                                 if (reason.length > 0) {
                                     var reasonsList = '<p>Reasons:</p><ul>';
                                     reason.forEach(function(r) {
@@ -1096,80 +1098,99 @@ var DO = {
         },
 
         showViews: function(node) {
-            var stylesheets = $('head link[rel~="stylesheet"][title]:not([href$="do.css"])');
+            var stylesheets = document.querySelectorAll('head link[rel~="stylesheet"][title]:not([href$="do.css"])');
 
             if (stylesheets.length > 1) {
                 var s = '<section id="views" class="do"><h2>Views</h2><ul>';
-                stylesheets.each(function(i, stylesheet) {
-                    var view = $(this).prop('title');
-                    if($(this).is('[rel~="alternate"]')) {
+                for (var i = 0; i < stylesheets.length; i++) {
+                    var stylesheet = stylesheets[i];
+                    var view = stylesheet.getAttribute('title');
+                    if(stylesheet.matches('[rel~="alternate"]')) {
                         s += '<li><button>' + view + '</button></li>';
                     }
                     else {
                         s += '<li><button disabled="disabled">' + view + '</button></li>';
                     }
-                });
+                }
                 s += '<li><button>Native</button></li>';
                 s += '</ul></section>';
 
-                $(node).append(s);
+                node.insertAdjacentHTML('beforeend', s);
 
-                $('#views.do button').on('click', function(e) {
-                    var selected = $(this);
-                    var prevStylesheet = $('head link[rel="stylesheet"][title]:not([href$="do.css"]):not(disabled)').prop('title') || '';
+                var viewButtons = document.querySelectorAll('#views.do button');
+                for (var i = 0; i < viewButtons.length; i++) {
+                    viewButtons[i].addEventListener('click', function(e) {
+                        var selected = e.target;
+                        var prevStylesheet = document.querySelector('head link[rel="stylesheet"][title]:not([href$="do.css"]):not(disabled)');
+                        prevStylesheet = (prevStylesheet) ? prevStylesheet.getAttribute('title') : '';
 
-                    $('head link[rel~="stylesheet"][title]:not([href$="do.css"])').each(function(i, stylesheet) {
-                        $(this).prop('disabled', true); //XXX: Leave this. WebKit wants to trigger this before for some reason.
+                        for (var j = 0; j < stylesheets.length; j++) {
+                            var stylesheet = stylesheets[j];
+                            if (stylesheet.getAttribute('title').toLowerCase() == selected.textContent.toLowerCase()) {
+                                stylesheet.setAttribute('rel', 'stylesheet');
+                                stylesheet.disabled = false;
+                            }
+                            else {
+                                stylesheet.disabled = true; //XXX: Leave this. WebKit wants to trigger this before for some reason.
+                                stylesheet.setAttribute('rel', 'stylesheet alternate');
+                            }
+                        };
 
-                        if ($(this).prop('title').toLowerCase() == selected.text().toLowerCase()) {
-                            $(this).prop({'rel': 'stylesheet', 'disabled': false});
+                        var bd = document.querySelectorAll('#views.do button:disabled');
+                        for(var j = 0; j < bd.length; j++) {
+                            bd[j].disabled = false;
                         }
-                        else {
-                            $(this).prop({'rel': 'stylesheet alternate'});
-                        }
+                        selected.disabled = true;
 
-                        $('span.ref').each(function(i){
-                            var refId = $(this).find('mark').prop('id');
-                            var noteId = $(this).find('a').text();
+                        var sr = document.querySelectorAll('span.ref');
+                        for(var j = 0; j < sr.length; j++) {
+                            var refId = sr[j].querySelector('mark').id;
+                            var noteId = str[j].querySelector('a').textContent;
                             DO.U.positionNote(refId, noteId, noteId);
-                        });
+                        };
+
+                        if (selected.textContent.toLowerCase() == 'shower') {
+                            var slides = document.querySelectorAll('.slide');
+                            for(var j = 0; j < slides.length; j++) {
+                                slides[j].classList.add('do');
+                            }
+                            document.body.classList.add('on-slideshow', 'list');
+                            document.querySelector('head').insertAdjacentHTML('beforeend', '<meta name="viewport" content="width=792, user-scalable=no" />');
+
+                            var dM = document.getElementById('document-menu');
+                            var dMButton = dM.querySelector('header button');
+
+                            dM.classList.remove('on');
+                            var dMSections = dM.querySelectorAll('section');
+                            for (var j = 0; j < dMSections.length; j++) {
+                                dMSections[j].parentNode.removeChild(dMSections[j]);
+                            }
+                            document.body.classList.remove('on-document-menu');
+                            dMButton.classList.add('show');
+                            dMButton.setAttribute('title', 'Open Menu');
+                            var toc = document.getElementById('table-of-contents');
+                            toc = (toc) ? toc.parentNode.removeChild(toc) : false;
+
+                            DO.U.hideStorage();
+
+                            shower.initRun();
+                        }
+                        if (prevStylesheet.toLowerCase() == 'shower') {
+                            var slides = document.querySelectorAll('.slide');
+                            for (var c = 0; c < slides.length; c++){
+                                slides[c].classList.remove('do');
+                            }
+                            document.body.classList.remove('on-slideshow', 'list', 'full');
+                            document.body.removeAttribute('style');
+                            var mV = document.querySelector('head meta[name="viewport"][content="width=792, user-scalable=no"]');
+                            mV = (mV) ? mV.parentNode.removeChild(mV) : false;
+
+                            history.pushState(null, null, window.location.pathname);
+
+                            shower.removeEvents();
+                        }
                     });
-
-                    $('#views.do button:disabled').removeAttr('disabled');
-                    $(this).prop('disabled', 'disabled');
-
-                    if (selected.text().toLowerCase() == 'shower') {
-                        $('.slide').addClass('do');
-                        $('body').addClass('on-slideshow list');
-                        $('head').append('<meta name="viewport" content="width=792, user-scalable=no"/>');
-
-                        var dM = $('#document-menu');
-                        var dMButton = dM.find('header button');
-
-                        dM.removeClass('on').find('section').remove();
-                        $('body').removeClass('on-document-menu');
-                        dMButton.addClass('show');
-                        dMButton.attr('title', 'Open Menu');
-                        $('#table-of-contents').remove();
-                        DO.U.hideStorage();
-
-                        shower.initRun();
-//                        $('head').append('<script src="scripts/shower.js"></script>');
-                    }
-                    if (prevStylesheet.toLowerCase() == 'shower') {
-                        $('.slide').removeClass('do');
-                        $('body').removeClass('on-slideshow list full');
-                        $('body').removeAttr('style');
-                        $('head meta[name="viewport"][content="width=792, user-scalable=no"]').remove();
-//                        $('head script[src="scripts/shower.js"]').remove();
-
-                        history.pushState(null, null, window.location.pathname);
-//                        var lH = window.location.href;
-//                        window.location.href = lH.substr(0, lH.lastIndexOf('?'));
-
-                        shower.removeEvents();
-                    }
-                });
+                }
             }
         },
         
@@ -1347,25 +1368,32 @@ var DO = {
                 var key = Object.keys(i)[0];
                 var value = i[key];
                 var checkedInput = '';
-                if($('#table-of-'+ key +'s').length > 0) {
+                if(document.getElementById('table-of-'+ key +'s')) {
                     checkedInput = ' checked="checked"';
                 }
 
                 s+= '<li><input id="t-o-' + key +'" type="checkbox"' + disabledInput + checkedInput + '/><label for="t-o-' + key + '">' + value + '</label></li>';
             });
 
-            $(node).append('<section id="table-of-stuff" class="do"><h2>Table of Stuff</h2><ul>' + s + '</ul></section>');
+            node.insertAdjacentHTML('beforeend', '<section id="table-of-stuff" class="do"><h2>Table of Stuff</h2><ul>' + s + '</ul></section>');
 
             if(DO.C.EditorEnabled) {
-                $('#table-of-stuff').on('click', 'input', function(e){
-                    var id = $(this).prop('id');
-                    var listType = id.slice(4, id.length);
+                document.getElementById('table-of-stuff').addEventListener('click', function(e){
+                    if (e.target.matches('input')) {
+                        var id = e.target.id;
+                        var listType = id.slice(4, id.length);
 
-                    if($(this).prop('checked')) {
-                        DO.U.buildTableOfStuff(listType);
-                    }
-                    else {
-                        $('#table-of-'+listType+'s').remove();
+                        if(!e.target.getAttribute('checked')) {
+                            DO.U.buildTableOfStuff(listType);
+                            e.target.setAttribute('checked', 'checked');
+                        }
+                        else {
+                            var tol = document.getElementById('table-of-'+listType+'s');
+                            if(tol) {
+                                tol.parentNode.removeChild(tol);
+                            }
+                            e.target.removeAttribute('checked');
+                        }
                     }
                 });
             }
@@ -1428,9 +1456,9 @@ var DO = {
         },
 
         showToC: function() {
-            var section = $('h1 ~ div section:not([class~="slide"]):not([id^=table-of])');
+            var sections = document.querySelectorAll('h1 ~ div > section:not([class~="slide"]):not([id^=table-of])');
 
-            if (section.length > 0) {
+            if (sections.length > 0) {
                 var s = '';
                 var sortable = '';
 
@@ -1439,14 +1467,16 @@ var DO = {
                 }
 
                 s = '<aside id="toc" class="do on' + sortable + '"><button class="close">❌</button></aside>';
-                $('body').append(s);
+                document.body.insertAdjacentHTML('beforeend', s);
 
-                DO.U.showTableOfStuff($('#toc'));
+                var toc = document.getElementById('toc');
+
+                DO.U.showTableOfStuff(toc);
 
                 s = '<section id="table-of-contents-i" class="do"><h2>Table of Contents</h2><ol class="toc' + sortable + '">';
-                s += DO.U.getListOfSections(section, DO.C.SortableList);
+                s += DO.U.getListOfSections(sections, DO.C.SortableList);
                 s += '</ol></section>';
-                $('#toc').append(s);
+                toc.insertAdjacentHTML('beforeend', s);
 
                 if(DO.C.SortableList && DO.C.EditorEnabled) {
                     DO.U.sortToC();
@@ -1507,52 +1537,26 @@ var DO = {
             });
         },
 
-        getListOfSections: function(section, sortable) {
+        getListOfSections: function(sections, sortable) {
             var s = attributeClass = '';
             if (sortable == true) { attributeClass = ' class="sortable"'; }
 
-            section.each(function(i,section) {
-                var h = $(section).find('> h2');
-                if (h.length > 0) {
-                    s += '<li data-id="' + section.id +'"><a href="#' + section.id + '">' + h.text() + '</a>';
-                    section = $(section).find('section[rel*="hasPart"]:not([class~="slide"])');
-                    if (section.length > 0) {
-                        s += '<ol'+ attributeClass +'>';
-                        section.each(function(j, section) {
-                            var h = $(section).find('> h3');
-                            if (h.length > 0) {
-                                s += '<li data-id="' + section.id +'"><a href="#' + section.id + '">' + h.text() + '</a>';
-                                section = $(section).find('section[rel*="hasPart"]:not([class~="slide"])');
-                                if (section.length > 0) {
-                                    s += '<ol'+ attributeClass +'>';
-                                    section.each(function(k, section) {
-                                        var h = $(section).find('> h4');
-                                        if (h.length > 0) {
-                                            s += '<li data-id="' + section.id +'"><a href="#' + section.id + '">' + h.text() + '</a>';
-                                            section = $(section).find('section[rel*="hasPart"]:not([class~="slide"])');
-                                            if (section.length > 0) {
-                                                s += '<ol'+ attributeClass +'>';
-                                                section.each(function(k, section) {
-                                                    var h = $(section).find('> h5');
-                                                    if (h.length > 0) {
-                                                        s += '<li data-id="' + section.id +'"><a href="#' + section.id + '">' + h.text() + '</a></li>';
-                                                    }
-                                                });
-                                                s += '</ol>';
-                                            }
-                                            s += '</li>';
-                                        }
-                                    });
-                                    s += '</ol>';
-                                }
-                                s += '</li>';
-                            }
-                        });
-                        s += '</ol>';
+            for (var i = 0; i < sections.length; i++) {
+                var section = sections[i];
+                if(section.id) {
+                    var heading = section.querySelector(':first-child');
+                    if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].indexOf(heading.tagName.toLowerCase()) > -1) {
+                        s += '<li data-id="' + section.id +'"><a href="#' + section.id + '">' + heading.textContent + '</a>';
+                        var subsections = section.parentNode.querySelectorAll('#' + section.id + ' > div > section[rel*="hasPart"]:not([class~="slide"])');
+                        if (subsections) {
+                            s += '<ol'+ attributeClass +'>';
+                            s += DO.U.getListOfSections(subsections, sortable);
+                            s += '</ol>';
+                        }
+                        s += '</li>';
                     }
-                    s += '</li>';
                 }
-            });
+            }
 
             return s;
         },
@@ -1561,11 +1565,10 @@ var DO = {
             var s = elementId = elementTitle = titleType = tableHeading = '';
             var tableList = [];
 
-            if (listType) { tableList = [listType]; }
-            else { tableList = ['content', 'figure', 'table', 'abbr']; }
+            tableList = (listType) ? [listType] : ['content', 'figure', 'table', 'abbr'];
 
             tableList.forEach(function(element) {
-                var e = $(element);
+                var e = document.querySelectorAll(element);
                 if (element == 'content' || e.length > 0) {
                     switch(element) {
                         case 'figure':
@@ -1596,32 +1599,27 @@ var DO = {
                     s += '<div><ol class="toc">';
 
                     if (element == 'content') {
-                        s += DO.U.getListOfSections($('h1 ~ div section:not([class~="slide"])'), false);
+                        s += DO.U.getListOfSections(document.querySelectorAll('h1 ~ div > section:not([class~="slide"])'), false);
                     }
                     else {
                         if (element == 'abbr') {
                             if (e.length > 0) {
-                                e.sort(function(a, b) {
-                                    var textA = $(a).text();
-                                    var textB = $(b).text();
+                                [].slice.call(e).sort(function(a, b) {
+                                    var textA = a.textContent;
+                                    var textB = b.textContent;
                                     return (textA < textB) ? -1 : (textA > textB) ? 1 : 0;
                                 });
                             }
 
-                            e.each(function() {
-                                var title = $(this).attr(titleType);
-                                var text = $(this).text();
-                                s += '<dt>' + text + '</dt>';
-                                s += '<dd>' + title + '</dd>';
-                            });
+                            for (var i = 0; i < e.length; i++) {
+                                s += '<dt>' + e[i].textContent + '</dt>';
+                                s += '<dd>' + e[i].getAttribute(titleType) + '</dd>';
+                            };
                         }
                         else {
-                            e.each(function(i,v) {
-                                elementId = $(this).attr('id');
-                                elementTitle = $(this).find(titleType).text();
-
-                                s += '<li><a href="#' + elementId +'">' + elementTitle  +'</a></li>';
-                            });
+                            for (var i = 0; i < e.length; i++) {
+                                s += '<li><a href="#' + e[i].id +'">' + e[i].querySelector(titleType).textContent +'</a></li>';
+                            };
                         }
                     }
 
@@ -1636,21 +1634,21 @@ var DO = {
             });
 
             //XXX: Tries to find a suitable place to insert.
-            var i = $('#document-status');
-            if (i.length > 0) { i.after(s); }
+            var i = document.getElementById('document-status');
+            if (i) { i.insertAdjacentHTML('afterend', s); }
             else {
-                i = $('#introduction');
-                if (i.length > 0) { i.before(s); }
+                i = document.getElementById('introduction');
+                if (i) { i.insertAdjacentHTML('beforebegin', s); }
                 else {
-                    i = $('#prologue');
-                    if (i.length > 0) { i.before(s); }
+                    i = document.getElementById('prologue');
+                    if (i) { i.insertAdjacentHTML('beforebegin', s); }
                     else {
-                        i = $('#keywords');
-                        if (i.length > 0) { i.after(s); }
+                        i = document.getElementById('keywords');
+                        if (i) { i.insertAdjacentHTML('afterend', s); }
                         else {
-                            i = $('#categories-and-subject-descriptors');
-                            if (i.length > 0) { i.after(s); }
-                            else { $('#content').prepend(s); }
+                            i = document.getElementById('categories-and-subject-descriptors');
+                            if (i) { i.insertAdjacentHTML('afterend', s); }
+                            else { document.getElementById('content').insertAdjacentHTML('afterbegin', s); }
                         }
                     }
                 }
@@ -1864,7 +1862,7 @@ var DO = {
             //XXX: Encodes strings as UTF-8. Consider storing bytes instead?
             var blob = new Blob([data], {type:'text/html;charset=utf-8'});
             var pattern = /[^\w]+/ig;
-            var title = $('h1').text().toLowerCase().replace(pattern, '-') || "index";
+            var title = document.querySelector('h1').textContent.toLowerCase().replace(pattern, '-') || "index";
             var timestamp = DO.U.getDateTimeISO().replace(pattern, '') || "now";
 
             var fileName = title + '.' + timestamp + '.html';
@@ -1886,68 +1884,67 @@ var DO = {
         },
 
         showDocumentDo: function(node) {
-            var s = '<section id="document-do" class="do"><h2>Do</h2><ul>';
-
-            if (DO.C.EditorAvailable) {
-                var editFile = '';
-                if (DO.C.EditorEnabled) {
-                    editFile = DO.C.Editor.DisableEditorButton;
-                }
-                else {
-                    editFile = DO.C.Editor.EnableEditorButton;
-                }
-
-                s += '<li>' + editFile + '</li>';
-            }
-
             var buttonDisabled = '';
             if (document.location.protocol == 'file:') {
                 buttonDisabled = ' disabled="disabled"';
             }
+
+            var s = '<section id="document-do" class="do"><h2>Do</h2><ul>';
+            if (DO.C.EditorAvailable) {
+                var editFile = (DO.C.EditorEnabled) ? DO.C.Editor.DisableEditorButton : DO.C.Editor.EnableEditorButton;
+                s += '<li>' + editFile + '</li>';
+            }
             s += '<li><button class="resource-new"'+buttonDisabled+'>New</button></li>';
             s += '<li><button class="resource-save"'+buttonDisabled+'>Save</button></li>';
             s += '<li><button class="resource-save-as">Save As</button></li>';
-
             s += '<li><button class="resource-export">Export</button></li>';
             s += '<li><button class="resource-print">Print</button></li>';
-
             s += '</ul></section>';
+            node.insertAdjacentHTML('beforeend', s);
 
-            $(node).append(s);
-
-            if (DO.C.EditorAvailable) {
-                $('#document-do').on('click', 'button.editor-enable', function(e) {
-                    $(this).parent().html(DO.C.Editor.DisableEditorButton);
-                    DO.U.Editor.enableEditor();
-                });
-                $('#document-do').on('click', 'button.editor-disable', function(e) {
-                    $(this).parent().html(DO.C.Editor.EnableEditorButton);
-                    DO.U.Editor.disableEditor();
-                });
-            }
-
-            $('#document-do').on('click', '.resource-new', DO.U.createNewDocument);
-            $('#document-do').on('click', '.resource-save', function(e) {
-                var url = window.location.origin + window.location.pathname;
-                var data = DO.U.getDocument();
-                DO.U.putResource(url, data).then(
-                    function(i) {
-                        DO.U.hideDocumentMenu();
-                    },
-                    function(reason) {
-                        console.log(reason);
+            var dd = document.getElementById('document-do');
+            dd.addEventListener('click', function(e) {
+                if (DO.C.EditorAvailable) {
+                    if (e.target.matches('button.editor-enable')) {
+                        e.target.parentNode.innerHTML = DO.C.Editor.DisableEditorButton;
+                        DO.U.Editor.enableEditor();
                     }
-                );
-            });
-            $('#document-do').on('click', '.resource-save-as', DO.U.saveAsDocument);
-            //$('#document-do').on('click', '.resource-browser', DO.U.showResourceBrowser);
+                    if (e.target.matches('button.editor-disable')) {
+                        e.target.parentNode.innerHTML = DO.C.Editor.EnableEditorButton;
+                        DO.U.Editor.disableEditor();
+                    }
+                }
 
-            $('#document-do').on('click', '.resource-export', DO.U.exportAsHTML);
+                if (e.target.matches('.resource-new')) {
+                    DO.U.createNewDocument(e);
+                }
 
-            $('#document-do').on('click', '.resource-print', function(e) {
-                DO.U.hideDocumentMenu();
-                window.print();
-                return false;
+                if (e.target.matches('.resource-save')) {
+                    var url = window.location.origin + window.location.pathname;
+                    var data = DO.U.getDocument();
+                    DO.U.putResource(url, data).then(
+                        function(i) {
+                            DO.U.hideDocumentMenu();
+                        },
+                        function(reason) {
+                            console.log(reason);
+                        }
+                    );
+                }
+
+                if (e.target.matches('.resource-save-as')) {
+                    DO.U.saveAsDocument(e);
+                }
+
+                if (e.target.matches('.resource-export')) {
+                    DO.U.exportAsHTML();
+                }
+
+                if (e.target.matches('.resource-print')) {
+                    DO.U.hideDocumentMenu();
+                    window.print();
+                    return false;
+                }
             });
         },
 
@@ -2167,123 +2164,140 @@ var DO = {
 
         },
 
-        createNewDocument: function() {
-            $(this).prop('disabled', 'disabled');
-            $('body').append('<aside id="create-new-document" class="do on"><button class="close">❌</button><h2>Create New Document</h2></aside>');
+        createNewDocument: function(e) {
+            e.target.disabled = true;
+            document.body.insertAdjacentHTML('beforeend', '<aside id="create-new-document" class="do on"><button class="close">❌</button><h2>Create New Document</h2></aside>');
 
-            var newDocument = $('#create-new-document');
-            newDocument.on('click', 'button.close', function(e) {
-                $('#document-do .resource-new').removeAttr('disabled');
+            var newDocument = document.getElementById('create-new-document');
+            newDocument.addEventListener('click', function(e) {
+                if (e.target.matches('button.close')) {
+                    document.querySelector('#document-do .resource-new').disabled = false;
+                }
             });
 
-            DO.U.setupResourceBrowser(document.getElementById('create-new-document'));
-            document.getElementById('browser-location').insertAdjacentHTML('afterBegin', '<p>Choose a location to save your new article.</p>');
-            newDocument.append(DO.U.getBaseURLSelection() + '<p>Your new document will be saved at <samp id="location-final">https://example.org/path/to/article</samp></p><button class="create">Create</button>');
-            document.getElementById('browser-location-input').focus();
-            document.getElementById('browser-location-input').placeholder = 'https://example.org/path/to/article';
+            DO.U.setupResourceBrowser(newDocument);
+            document.getElementById('browser-location').insertAdjacentHTML('afterbegin', '<p>Choose a location to save your new article.</p>');
+            newDocument.insertAdjacentHTML('beforeend', DO.U.getBaseURLSelection() + '<p>Your new document will be saved at <samp id="location-final">https://example.org/path/to/article</samp></p><button class="create">Create</button>');
+            var bli = document.getElementById('browser-location-input');
+            bli.focus();
+            bli.placeholder = 'https://example.org/path/to/article';
 
-            newDocument.on('click', 'button.create', function(e) {
-                var newDocument = $('#create-new-document')
-                var storageIRI = newDocument.find('input#browser-location-input').val().trim();
-                newDocument.find('.response-message').remove();
+            newDocument.addEventListener('click', function(e) {
+                if (e.target.matches('button.create')) {
+                    var newDocument = document.getElementById('create-new-document');
+                    var storageIRI = newDocument.querySelector('input#browser-location-input').value.trim();
+                    var rm = newDocument.querySelector('.response-message');
+                    if (rm) {
+                        rm.parentNode.removeChild(rm);
+                    }
 
-                var html = document.documentElement.cloneNode(true);
-                var baseURLSelectionChecked = newDocument.find('select[name="base-url"]');
+                    var html = document.documentElement.cloneNode(true);
+                    var baseURLSelectionChecked = newDocument.querySelector('select[name="base-url"]');
 // console.log(baseURLSelectionChecked);
-                if (baseURLSelectionChecked.length > 0) {
-                    var baseURLType = baseURLSelectionChecked.val();
-                    var nodes = $(html).find('head link, [src], object[data]');
-                    if (baseURLType == 'base-url-relative') {
-                        DO.U.copyRelativeResources(storageIRI, nodes);
-                    }
-                    nodes = DO.U.rewriteBaseURL(nodes, baseURLType);
-                }
-
-                $(html).find('main > article').empty();
-                $(html).find('head title').empty();
-                html = DO.U.getDocument(html);
-
-                DO.U.putResource(storageIRI, html).then(
-                    function(i) {
-// console.log(i);
-                        newDocument.append('<div class="response-message"><p class="success">New document created at <a href="' + storageIRI + '?edit=true">' + storageIRI + '</a></p></div>');
-                        window.open(storageIRI + '?edit=true', '_blank');
-                    },
-                    function(reason) {
-                        switch(reason.status) {
-                            default:
-                                newDocument.append('<div class="response-message"><p class="error">Unable to create new.</p>');
-                                break;
-                            case 0: case 405:
-                                newDocument.append('<div class="response-message"><p class="error">Unable to create new: this location is not writeable.</p></div>');
-                                break;
-                            case 401: case 403:
-                                newDocument.append('<div class="response-message"><p class="error">Unable to create new: you don\'t have permission to write here.</p></div>');
-                                break;
-                            case 406:
-                                newDocument.append('<div class="response-message"><p class="error">Unable to create new: enter a name for your resource.</p></div>');
-                                break;
+                    if (baseURLSelectionChecked.length > 0) {
+                        var baseURLType = baseURLSelectionChecked.value;
+                        var nodes = html.querySelectorAll('head link, [src], object[data]');
+                        if (baseURLType == 'base-url-relative') {
+                            DO.U.copyRelativeResources(storageIRI, nodes);
                         }
-                        console.log(reason);
+                        nodes = DO.U.rewriteBaseURL(nodes, baseURLType);
                     }
-                );
+
+                    html.querySelector('main > article').innerHTML = '';
+                    html.querySelector('head title').innerHTML = '';
+                    html = DO.U.getDocument(html);
+
+                    DO.U.putResource(storageIRI, html).then(
+                        function(i) {
+// console.log(i);
+                            newDocument.insertAdjacentHTML('beforeend', '<div class="response-message"><p class="success">New document created at <a href="' + storageIRI + '?edit=true">' + storageIRI + '</a></p></div>');
+                            window.open(storageIRI + '?edit=true', '_blank');
+                        },
+                        function(reason) {
+                            switch(reason.status) {
+                                default:
+                                    newDocument.insertAdjacentHTML('beforeend', '<div class="response-message"><p class="error">Unable to create new.</p>');
+                                    break;
+                                case 0: case 405:
+                                    newDocument.insertAdjacentHTML('beforeend', '<div class="response-message"><p class="error">Unable to create new: this location is not writeable.</p></div>');
+                                    break;
+                                case 401: case 403:
+                                    newDocument.insertAdjacentHTML('beforeend', '<div class="response-message"><p class="error">Unable to create new: you don\'t have permission to write here.</p></div>');
+                                    break;
+                                case 406:
+                                    newDocument.insertAdjacentHTML('beforeend', '<div class="response-message"><p class="error">Unable to create new: enter a name for your resource.</p></div>');
+                                    break;
+                            }
+                            console.log(reason);
+                        }
+                    );
+                }
             });
         },
 
-        saveAsDocument: function() {
-            $(this).prop('disabled', 'disabled');
-            $('body').append('<aside id="save-as-document" class="do on"><button class="close">❌</button><h2>Save As Document</h2></aside>');
+        saveAsDocument: function(e) {
+            e.target.disabled = true;
+            document.body.insertAdjacentHTML('beforeend', '<aside id="save-as-document" class="do on"><button class="close">❌</button><h2>Save As Document</h2></aside>');
 
-            var saveAsDocument = $('#save-as-document');
-            saveAsDocument.on('click', 'button.close', function(e) {
-                $('#document-do .resource-save-as').removeAttr('disabled');
-            });
-            DO.U.setupResourceBrowser(document.getElementById('save-as-document'));
-            document.getElementById('browser-location').insertAdjacentHTML('afterBegin', '<p>Choose a location to save your new article.</p>');
-            saveAsDocument.append(DO.U.getBaseURLSelection() + '<p>Your new document will be saved at <samp id="location-final">https://example.org/path/to/article</samp></p><button class="create">Save</button>');
-            document.getElementById('browser-location-input').focus();
-            document.getElementById('browser-location-input').placeholder = 'https://example.org/path/to/article';
-
-            saveAsDocument.on('click', 'button.create', function(e) {
-                var saveAsDocument = $('#save-as-document');
-                var storageIRI = saveAsDocument.find('input#browser-location-input').val().trim();
-                saveAsDocument.find('.response-message').remove();
-
-                var html = document.documentElement.cloneNode(true);
-                var baseURLSelectionChecked = saveAsDocument.find('select[name="base-url"]');
-                if (baseURLSelectionChecked.length > 0) {
-                    var baseURLType = baseURLSelectionChecked.val();
-                    var nodes = $(html).find('head link, [src], object[data]');
-                    if (baseURLType == 'base-url-relative') {
-                        DO.U.copyRelativeResources(storageIRI, nodes);
-                    }
-                    nodes = DO.U.rewriteBaseURL(nodes, baseURLType);
+            var saveAsDocument = document.getElementById('save-as-document');
+            saveAsDocument.addEventListener('click', function(e) {
+                if (e.target.matches('button.close')) {
+                    document.querySelector('#document-do .resource-save-as').disabled = false;
                 }
-                html = DO.U.getDocument(html);
+            });
 
-                DO.U.putResource(storageIRI, html).then(
-                    function(i) {
-                        saveAsDocument.append('<div class="response-message"><p class="success">Document saved at <a href="' + storageIRI + '?edit=true">' + storageIRI + '</a></p></div>');
-                        window.open(storageIRI + '?edit=true', '_blank');
-                    },
-                    function(reason) {
-                        switch(reason.status) {
-                            default:
-                                saveAsDocument.append('<div class="response-message"><p class="error">Unable to save.</p></div>');
-                                break;
-                            case 0: case 405:
-                                saveAsDocument.append('<div class="response-message"><p class="error">Unable to save: this location is not writeable.</p></div>');
-                                break;
-                            case 401: case 403:
-                                saveAsDocument.append('<div class="response-message"><p class="error">Unable to save: you don\'t have permission to write here.</p></div>');
-                                break;
-                            case 406:
-                                saveAsDocument.append('<div class="response-message"><p class="error">Unable to save: enter a name for your resource.</p></div>');
-                                break;
-                        }
-                        console.log(reason);
+            DO.U.setupResourceBrowser(saveAsDocument);
+            document.getElementById('browser-location').insertAdjacentHTML('afterbegin', '<p>Choose a location to save your new article.</p>');
+            saveAsDocument.insertAdjacentHTML('beforeend', DO.U.getBaseURLSelection() + '<p>Your new document will be saved at <samp id="location-final">https://example.org/path/to/article</samp></p><button class="create">Save</button>');
+            var bli = document.getElementById('browser-location-input');
+            bli.focus();
+            bli.placeholder = 'https://example.org/path/to/article';
+
+           saveAsDocument.addEventListener('click', function(e) {
+                if (e.target.matches('button.create')) {
+                    var saveAsDocument = document.getElementById('save-as-document');
+                    var storageIRI = saveAsDocument.querySelector('input#browser-location-input').value.trim();
+                    var rm = saveAsDocument.querySelector('.response-message');
+                    if (rm) {
+                        rm.parentNode.removeChild(rm);
                     }
-                );
+
+                    var html = document.documentElement.cloneNode(true);
+                    var baseURLSelectionChecked = saveAsDocument.querySelector('select[name="base-url"]');
+                    if (baseURLSelectionChecked.length > 0) {
+                        var baseURLType = baseURLSelectionChecked.value;
+                        var nodes = html.querySelectorAll('head link, [src], object[data]');
+                        if (baseURLType == 'base-url-relative') {
+                            DO.U.copyRelativeResources(storageIRI, nodes);
+                        }
+                        nodes = DO.U.rewriteBaseURL(nodes, baseURLType);
+                    }
+                    html = DO.U.getDocument(html);
+
+                    DO.U.putResource(storageIRI, html).then(
+                        function(i) {
+                            saveAsDocument.insertAdjacentHTML('beforeend', '<div class="response-message"><p class="success">Document saved at <a href="' + storageIRI + '?edit=true">' + storageIRI + '</a></p></div>');
+                            window.open(storageIRI + '?edit=true', '_blank');
+                        },
+                        function(reason) {
+                            switch(reason.status) {
+                                default:
+                                    saveAsDocument.insertAdjacentHTML('beforeend', '<div class="response-message"><p class="error">Unable to save.</p></div>');
+                                    break;
+                                case 0: case 405:
+                                    saveAsDocument.insertAdjacentHTML('beforeend', '<div class="response-message"><p class="error">Unable to save: this location is not writeable.</p></div>');
+                                    break;
+                                case 401: case 403:
+                                    saveAsDocument.insertAdjacentHTML('beforeend', '<div class="response-message"><p class="error">Unable to save: you don\'t have permission to write here.</p></div>');
+                                    break;
+                                case 406:
+                                    saveAsDocument.insertAdjacentHTML('beforeend', '<div class="response-message"><p class="error">Unable to save: enter a name for your resource.</p></div>');
+                                    break;
+                            }
+                            console.log(reason);
+                        }
+                    );
+                }
             });
         },
 
@@ -2301,20 +2315,20 @@ var DO = {
         rewriteBaseURL: function(nodes, urlType) {
             urlType = urlType || 'base-url-absolute';
             if (typeof nodes === 'object' && nodes.length > 0) {
-                nodes.each(function(i, v) {
-                    var url = '', ref = '';
-                    var tagName = $(this).prop('tagName').toLowerCase();
-                    switch(tagName) {
+                for (var i = 0; i < nodes.length; i++) {
+                    var node = nodes[i];
+                    var url, ref;
+                    switch(node.tagName.toLowerCase()) {
                         default:
-                            url = $(this).attr('src');
+                            url = node.getAttribute('src');
                             ref = 'src';
                             break;
                         case 'link':
-                            url = $(this).attr('href');
+                            url = node.getAttribute('href');
                             ref = 'href';
                             break;
                         case 'object':
-                            url = $(this).attr('data');
+                            url = node.getAttribute('data');
                             ref = 'data';
                             break;
                     }
@@ -2323,8 +2337,8 @@ var DO = {
                     if (p != 'http' && p != 'file') {
                         url = DO.U.setBaseURL(url, urlType);
                     }
-                    $(this).prop(ref, url);
-                });
+                    node.setAttribute(ref, url);
+                };
             }
 
             return nodes;
@@ -2388,9 +2402,9 @@ var DO = {
             var ref = '';
             var baseURL = DO.U.getBaseURL(storageIRI);
 
-            relativeNodes.each(function(i, v) {
-                var tagName = $(this).prop('tagName').toLowerCase();
-                switch(tagName) {
+            for (var i = 0; i < relativeNodes.length; i++) {
+                var node = relativeNodes[i];
+                switch(node.tagName.toLowerCase()) {
                     default:
                         ref = 'src';
                         break;
@@ -2402,14 +2416,14 @@ var DO = {
                         break;
                 }
 
-                var fromURL = $(this).attr(ref);
+                var fromURL = node.getAttribute(ref);
                 var p = fromURL.slice(0, 4);
                 if (p != 'http' && p != 'file') {
                     var pathToFile = DO.U.setBaseURL(fromURL, 'base-url-relative');
                     var toURL = baseURL + pathToFile.replace(/^\//g, '');
                     DO.U.copyResource(fromURL, toURL);
                }
-            });
+            };
         },
 
         initStorage: function(item) {
@@ -2654,16 +2668,25 @@ LIMIT 1";
         },
 
         showAsTabs: function(id) {
-            $('#' + id + ' nav').on('click', 'a', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
+            document.querySelector('#' + id + ' nav').addEventListener('click', function(e) {
+                var a = e.target;
+                if (a.matches('a')) {
+                    e.preventDefault();
+                    e.stopPropagation();
 
-                var li = $(this).parent();
-                if(!li.hasClass('class')) {
-                    $('#' + id + ' nav li').removeClass('selected');
-                    li.addClass('selected');
-                    $('#' + id + ' > figure').removeClass('selected');
-                    $('#' + id + ' > figure' + $(this).prop('hash')).addClass('selected');
+                    var li = a.parentNode;
+                    if(!li.classList.contains('class')) {
+                        var navLi = document.querySelectorAll('#' + id + ' nav li');
+                        for (var i = 0; i < navLi.length; i++) {
+                            navLi[i].classList.remove('selected');
+                        }
+                        li.classList.add('selected');
+                        var figures = document.querySelectorAll('#' + id + ' > figure');
+                        for (var i = 0; i < figures.length; i++) {
+                            figures[i].classList.remove('selected');
+                        }
+                        document.querySelector('#' + id + ' > figure' + a.hash).classList.add('selected');
+                    }
                 }
             });
         },
@@ -3003,9 +3026,8 @@ LIMIT 1";
             enableEditor: function() {
                 //XXX: Consider this as the main wrapper for the editor tool.
                 if (!document.getElementById('document-editor')) {
-                    $('body').append('<aside id="document-editor" class="do"/>');
+                    document.body.insertAdjacentHTML('beforeend', '<aside id="document-editor" class="do"></aside>');
                 }
-        //        $('article:nth(0)').addClass('editable');
 
                 var editableNodes = document.querySelectorAll('main > article');
 
