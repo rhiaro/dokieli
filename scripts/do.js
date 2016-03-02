@@ -1047,6 +1047,7 @@ var DO = {
             DO.U.showUserSigninSignup(dHead);
             DO.U.showDocumentDo(dInfo);
             DO.U.showViews(dInfo);
+            DO.U.showTemplates(dInfo);
             DO.U.showEmbedData(dInfo);
             DO.U.showStorage(dInfo);
             DO.U.showDocumentMetadata(dInfo);
@@ -1170,6 +1171,58 @@ var DO = {
                     }
                 });
             }
+        },
+        
+        showTemplates: function(node){
+            node.insertAdjacentHTML('beforeEnd', '<section id="templates" class="do"><h2>Templates</h2><button class="choose-template">Choose template</button></section>');
+            document.querySelector('#templates.do button').addEventListener('click', function(e){
+                DO.U.setTemplate();
+                e.target.setAttribute('disabled', 'disabled');
+            });
+        },
+        
+        setTemplate: function(){
+            document.querySelector('body').insertAdjacentHTML('beforeEnd', '<aside id="set-template" class="do on"><button class="close">❌</button><h2>Set Template</h2></aside>');
+            
+            var templateBox = document.getElementById('set-template');
+            templateBox.querySelector('button.close').addEventListener('click', function(e) {
+                document.querySelector('#templates .choose-template').removeAttribute('disabled');
+            });
+            
+            DO.U.setupResourceBrowser(templateBox);
+            document.getElementById('browser-location').insertAdjacentHTML('afterBegin', '<p>Choose a template for this article.</p>');
+            document.getElementById('browser-location-input').focus();
+            document.getElementById('browser-location-input').placeholder = 'https://example.org/path/to/template.html';
+            templateBox.insertAdjacentHTML('beforeEnd', '<p><button class="create" disabled="disabled">Use</button></p>');
+            
+            templateBox.querySelector('button.create').addEventListener('click', function(){
+                var url = templateBox.querySelector('#browser-location-input').value;
+                DO.U.getResource(url).then(
+                    function(r){
+                        console.log(r.xhr.response);
+                    },
+                    function(r){
+                        console.log(r);
+                    }
+                );
+            }, false);
+            
+            templateBox.querySelector('#browser-location-input').addEventListener('keyup', function(e){
+                if (e.target.value.length > 10 && e.target.value.match(/^https?:\/\//g) && e.target.value.slice(-1) != "/") {
+                    templateBox.querySelector('button.create').removeAttribute('disabled');
+                }else{
+                    templateBox.querySelector('button.create').setAttribute('disabled', 'disabled');
+                }
+            }, false);
+            
+            templateBox.querySelector('#browser-ul').addEventListener('click', function(e){
+                if (e.target.value.length > 10 && e.target.value.match(/^https?:\/\//g) && e.target.value.slice(-1) != "/") {
+                    templateBox.querySelector('button.create').removeAttribute('disabled');
+                }else{
+                    templateBox.querySelector('button.create').setAttribute('disabled', 'disabled');
+                }
+            });
+            
         },
 
         showEmbedData: function(node) {
