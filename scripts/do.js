@@ -1220,7 +1220,15 @@ var DO = {
                 var url = templateBox.querySelector('#browser-location-input').value;
                 DO.U.getResource(url).then(
                     function(r){
-                        console.log(r.xhr.response);
+                        DO.U.buildTemplate(r.xhr.response).then(
+                            function(r){
+                                document.write(r);
+                                document.close();
+                            },
+                            function(r){
+                                console.log(r);
+                            }
+                        );
                     },
                     function(r){
                         console.log(r);
@@ -1244,6 +1252,25 @@ var DO = {
                 }
             });
             
+        },
+        
+        buildTemplate: function(template_html){
+            return new Promise(function(resolve, reject){
+                var template = document.createElement('html');
+                template.innerHTML = template_html;
+                template_html = DO.U.getDocument(template);
+                var normalised_html = DO.U.getDocument();
+                var contents = document.createElement('html');
+                contents.innerHTML = normalised_html;
+                // * get stuff to put into template
+                var pageMain = contents.querySelector('main');
+                var pageTitle = contents.querySelector('title');
+                // * replace put into template
+                template.querySelector('#do-template-script').remove();
+                template.querySelector('main').innerHTML = pageMain.innerHTML;
+                template.querySelector('title').textContent = pageTitle.textContent;
+                return resolve(template.outerHTML);
+            });
         },
 
         showEmbedData: function(node) {
