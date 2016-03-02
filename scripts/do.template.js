@@ -136,16 +136,18 @@ var TPL = {
           build_pages().then(
               function(r){
                   TPL.setLastBuilt();
-                  DO.U.putResource(window.location.href, DO.U.getDocument()).then(
-                      function(r){
-                          console.log('saved template');
-                          console.log(r);
-                      },
-                      function(r){
-                          console.log('failed to save template');
-                          console.log(r);
-                      }
-                  );
+                  window.setTimeout(function () {
+                      DO.U.putResource(window.location.href, DO.U.getDocument()).then(
+                          function(r){
+                              console.log('saved template');
+                              console.log(r);
+                          },
+                          function(r){
+                              console.log('failed to save template');
+                              console.log(r);
+                          }
+                      );
+                  }, 500);
               },
               function(r){
                   console.log('build loop failed');
