@@ -81,49 +81,77 @@ var TPL = {
               li.querySelector('time').setAttribute('datetime', time);
           }
           li.insertAdjacentHTML('beforeEnd', ' <strong class="do">' + message + '</strong>');
+          console.log(time + ' ' + url + ' ' + message);
       };
     
       var pages = document.querySelectorAll('main ul a');
       if(pages.length > 0){
-          for(var i = 0; i < pages.length; i++){
-              console.log(pages[i].href);
-              update_list(pages[i].href, "...building...");
-              TPL.getContent(pages[i].href).then(build).then(
-                  function(response){
-                      console.log('build response');
-                      console.log(response)
-                      // * PUT that back to content page URL
-                      DO.U.putResource(response.url, response.html).then(
-                          function(r){
-                              console.log(r);
-                              update_list(r.xhr.responseURL, "Built successfully", true);
-                          },
-                          function(r){
-                              console.log(r);
-                              var error = "";
-                              switch(r.status){
-                                  default:
-                                      error += "for unknown reasons ("+r.status+")";
-                                      break;
-                                  case 405:
-                                      error += "not writeable";
-                                      break;
-                                  case 404:
-                                      error += "not found";
-                                      break;
-                                  case 401: case 403:
-                                      error += "not authorised";
-                                      break;
+          var build_pages = function(){
+              return new Promise(function(resolve, reject) {
+                  for(var i = 0; i < pages.length; i++){
+                      console.log(pages[i].href);
+                      update_list(pages[i].href, "...building...");
+                      if(pages[i].href.match(/^https:\/\//g)){
+                          TPL.getContent(pages[i].href).then(build).then(
+                              function(response){
+                                  console.log('build response');
+                                  console.log(response)
+                                  // * PUT that back to content page URL
+                                  DO.U.putResource(response.url, response.html).then(
+                                      function(r){
+                                          update_list(r.xhr.responseURL, "Built successfully", true);
+                                          return resolve(r);
+                                      },
+                                      function(r){
+                                          var error = "";
+                                          switch(r.status){
+                                              default:
+                                                  error += "for unknown reasons ("+r.status+")";
+                                                  break;
+                                              case 405:
+                                                  error += "not writeable";
+                                                  break;
+                                              case 404:
+                                                  error += "not found";
+                                                  break;
+                                              case 401: case 403:
+                                                  error += "not authorised";
+                                                  break;
+                                          }
+                                          update_list(r.xhr.responseURL, "Failed ("+error+")");
+                                      }
+                                  );
+                              },
+                              function(reason){
+                                  update_list(pages[i].href, "Failed ("+reason+")");
                               }
-                              update_list(r.xhr.responseURL, "Failed ("+error+")");
-                          }
-                      );
-                  },
-                  function(reason){
-                      update_list(pages[i].href, "Failed ("+reason+")");
+                          );
+                      }else{
+                          // TODO: pass through a proxy maybe
+                          update_list(pages[i].href, "Failed (can't get insecure content, please use https)");
+                      }
                   }
-              );
+              });
           }
+          build_pages().then(
+              function(r){
+                  TPL.setLastBuilt();
+                  DO.U.putResource(window.location.href, DO.U.getDocument()).then(
+                      function(r){
+                          console.log('saved template');
+                          console.log(r);
+                      },
+                      function(r){
+                          console.log('failed to save template');
+                          console.log(r);
+                      }
+                  );
+              },
+              function(r){
+                  console.log('build loop failed');
+                  console.log(r);
+              }
+          );
       }else{
           console.log('No pages to build');
       }
@@ -132,15 +160,16 @@ var TPL = {
   showMenu: function(){
     var lastMod = TPL.getLastModified();
     var lastBuilt = TPL.getLastBuilt();
-    var menu = '<menu class="do on" id="template-menu"><h2>Template</h2><div><p>This is a template</p><p><button id="build-template">Build now</button></p><ul id="template-building"></ul></section></div></aside>';
+    var menu = '<menu class="do on" id="template-menu"><h2>Template</h2><div><p>This is a template</p><p><button id="build-template">Build now</button></p><p><button id="template-export">Export</button></p></section></div></aside>';
     document.querySelector('body').insertAdjacentHTML('beforeEnd', menu);
     
     var doBuild = document.getElementById('build-template');
     doBuild.addEventListener("click", function(e){
       e.preventDefault();
       TPL.buildContent();
-      TPL.setLastBuilt();
     }, false);
+    
+    document.getElementById('template-export').addEventListener("click", DO.U.exportAsHTML);
   }
   
 }
