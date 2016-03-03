@@ -1227,17 +1227,22 @@ var DO = {
                         DO.U.buildTemplate(r.xhr.response).then(
                             function(r){
                                 //document.write(r);
-                                document.documentElement.outerHTML = r; // HERENOW
+                                var html = document.implementation.createHTMLDocument('html');
+                                html.documentElement.innerHTML = r;
+                                document.replaceChild(html.documentElement, document.documentElement); // HERENOW
                                 //document.close();
                                 window.setTimeout(function(){
+                                    // TODO: use an init function when there is one to reboot DO
                                     DO.U.setTemplate();
                                     SimpleRDF.parse(r, 'text/html').then(
                                         function(i){
                                             var g = SimpleRDF(DO.C.Vocab, document.location.href);
                                             g.graph(i);
                                             var current = g.child(document.location.href);
+                                            console.log('current');
                                             console.log(current);
-                                            console.log(current.solidtemplate);
+                                            console.log('current solidtemplate');
+                                            console.log(current.solidtemplate); // This appears to work in firefox but not chrome FML
                                         }
                                     );
                                     
