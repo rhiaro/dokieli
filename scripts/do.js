@@ -152,6 +152,10 @@ var DO = {
                 "@id": "http://www.w3.org/ns/solid/terms#Notification",
                 "@type": "@id"
             },
+            "solidtemplate": {
+                "@id": "http://www.w3.org/ns/solid/terms#template",
+                "@type": "@id"
+            },
 
             "oaannotation": {
                 "@id": "http://www.w3.org/ns/oa#Annotation",
@@ -1222,8 +1226,22 @@ var DO = {
                     function(r){
                         DO.U.buildTemplate(r.xhr.response).then(
                             function(r){
-                                document.write(r);
-                                document.close();
+                                //document.write(r);
+                                document.documentElement.outerHTML = r; // HERENOW
+                                //document.close();
+                                window.setTimeout(function(){
+                                    DO.U.setTemplate();
+                                    SimpleRDF.parse(r, 'text/html').then(
+                                        function(i){
+                                            var g = SimpleRDF(DO.C.Vocab, document.location.href);
+                                            g.graph(i);
+                                            var current = g.child(document.location.href);
+                                            console.log(current);
+                                            console.log(current.solidtemplate);
+                                        }
+                                    );
+                                    
+                                }, 1000);
                             },
                             function(r){
                                 console.log(r);
@@ -1256,20 +1274,22 @@ var DO = {
         
         buildTemplate: function(template_html){
             return new Promise(function(resolve, reject){
-                var template = document.createElement('html');
-                template.innerHTML = template_html;
-                template_html = DO.U.getDocument(template);
-                var normalised_html = DO.U.getDocument();
-                var contents = document.createElement('html');
-                contents.innerHTML = normalised_html;
+              
+                var template = document.implementation.createHTMLDocument("template");
+                template.documentElement.innerHTML = template_html;
+                var article = document.cloneNode(true);
                 // * get stuff to put into template
-                var pageMain = contents.querySelector('main');
-                var pageTitle = contents.querySelector('title');
+                var main = article.querySelector('main');
+                var title = article.querySelector('title');
                 // * replace put into template
                 template.querySelector('#do-template-script').remove();
-                template.querySelector('main').innerHTML = pageMain.innerHTML;
-                template.querySelector('title').textContent = pageTitle.textContent;
-                return resolve(template.outerHTML);
+                template.querySelector('main').innerHTML = main.innerHTML;
+                template.querySelector('title').textContent = title.textContent;
+                var html_out = DO.U.getDocument(template);
+                if(!html_out || html_out.length < 1){
+                    return reject('Error building html');
+                }
+                return resolve(html_out);
             });
         },
 

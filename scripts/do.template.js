@@ -53,23 +53,29 @@ var TPL = {
       
       var build = function(result){
           return new Promise(function(resolve, reject){
-              // TODO: find a less horrendously verbose way to get a DOM tree from an html string. Maybe DO.U.getDocument could offer this..?
-              var template_html = DO.U.getDocument();
-              var template = document.createElement('html');
-              template.innerHTML = template_html;
-              var dom = document.createElement('html');
-              dom.innerHTML = result.xhr.response;
-              var normalised_html = DO.U.getDocument(dom);
-              var contents = document.createElement('html');
-              contents.innerHTML = normalised_html;
-              // * get stuff to put into template
-              var pageMain = contents.querySelector('main');
-              var pageTitle = contents.querySelector('title');
-              // * replace put into template
+              // Get template DOM
+              var template = document.cloneNode(true);
+              // Get article DOM
+              var article = document.implementation.createHTMLDocument("article");
+              article.documentElement.innerHTML = result.xhr.responseText;
+              // replace template <main> with article <main>
+              var title = article.querySelector('title');
+              var main = article.querySelector('main');
+              if(!main){
+                  return reject({url: result.xhr.responseURL, error: 'Invalid article (needs a &lt;main&gt;)'});
+              }
               template.querySelector('#do-template-script').remove();
-              template.querySelector('main').innerHTML = pageMain.innerHTML;
-              template.querySelector('title').textContent = pageTitle.textContent;
-              return resolve({url: result.xhr.responseURL, html: template.outerHTML}); // TODO: get links from headers.. wait do/should I do this? does this get overwritten by server anyway?
+              template.querySelector('main').innerHTML = main.innerHTML;
+              if(title){
+                  template.querySelector('title').textContent = title.textContent;
+              }
+              // Normalise
+              var html = DO.U.getDocument(template);
+              if(!html || html.length < 1){
+                  return reject({url: result.xhr.responseURL, error: 'Something went wrong with generating new HTML'});
+              }
+              // return article
+              return resolve({url: result.xhr.responseURL, html: html});
           });
       };
       var update_list = function(url, message, time){
@@ -89,13 +95,10 @@ var TPL = {
           var build_pages = function(){
               return new Promise(function(resolve, reject) {
                   for(var i = 0; i < pages.length; i++){
-                      console.log(pages[i].href);
                       update_list(pages[i].href, "...building...");
                       if(pages[i].href.match(/^https:\/\//g)){
                           TPL.getContent(pages[i].href).then(build).then(
                               function(response){
-                                  console.log('build response');
-                                  console.log(response)
                                   // * PUT that back to content page URL
                                   DO.U.putResource(response.url, response.html).then(
                                       function(r){
@@ -123,7 +126,9 @@ var TPL = {
                                   );
                               },
                               function(reason){
-                                  update_list(pages[i].href, "Failed ("+reason+")");
+                                  console.log('FUUUUUUU');
+                                  console.log(reason);
+                                  update_list(reason.url, "Failed ("+reason.error+")");
                               }
                           );
                       }else{
