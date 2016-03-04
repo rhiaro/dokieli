@@ -1215,6 +1215,23 @@ var DO = {
             });
         },
         
+        getTemplateURL: function(articleHTML){
+            // Assuming it's in a solid:template relation in the articleHTML.
+            SimpleRDF.parse(articleHTML, 'text/html').then(
+                function(i){
+                    var g = SimpleRDF(DO.C.Vocab, document.location.href);
+                    g.graph(i);
+                    var current = g.child(document.location.href);
+                    return current.solidtemplate; // This only works in firefox cos SimpleRDF has a bug
+                },
+                function(i){
+                    console.log('Error parsing');
+                    console.log(i);
+                    return undefined;
+                }
+            );
+        },
+        
         setTemplate: function(){
             document.querySelector('body').insertAdjacentHTML('beforeEnd', '<aside id="set-template" class="do on"><button class="close">❌</button><h2>Set Template</h2></aside>');
             
@@ -1240,19 +1257,11 @@ var DO = {
                                 document.replaceChild(html.documentElement, document.documentElement);
                                 // TODO: use an init function when there is one to reboot DO
                                 DO.U.setTemplate();
-                                SimpleRDF.parse(r.article, 'text/html').then(
-                                    function(i){
-                                        var g = SimpleRDF(DO.C.Vocab, document.location.href);
-                                        g.graph(i);
-                                        var current = g.child(document.location.href);
-                                        var templateURL = current.solidtemplate; // This only works in firefox cos SimpleRDF has a bug
-                                        if(typeof templateURL === "undefined"){ // Temporary hack for Chrome
-                                            templateURL = url;
-                                        }
-                                        DO.U.confirmTemplate(templateURL, r.template, document.location.href, r.article, document.getElementById('set-template'));
-                                    }
-                                );
-                                    
+                                templateURL = DO.U.getTemplateURL(r.article);
+                                if(typeof templateURL === "undefined"){ // Temporary hack for Chrome
+                                    templateURL = url;
+                                }
+                                DO.U.confirmTemplate(templateURL, r.template, document.location.href, r.article, document.getElementById('set-template'));
                             },
                             function(r){
                                 console.log('Failed to build');
@@ -1297,6 +1306,8 @@ var DO = {
                         var article = document.implementation.createHTMLDocument("article");
                         article.documentElement.innerHTML = articleHTML;
                         var articleName = article.querySelector('h1').textContent;
+                        node.querySelector('button.save').remove();
+                        node.querySelector('button.cancel').textContent = 'Reload to keep editing';
                         DO.U.addToTemplate(templateURL, templateHTML, r.xhr.responseURL, articleName);
                     },
                     function(r){
