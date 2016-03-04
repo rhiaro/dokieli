@@ -1223,38 +1223,38 @@ var DO = {
             templateBox.querySelector('button.create').addEventListener('click', function(){
                 var url = templateBox.querySelector('#browser-location-input').value;
                 DO.U.getResource(url).then(
-                    function(r){
-                        DO.U.buildTemplate(r.xhr.response).then(
+                    function(got){
+                        DO.U.buildWithTemplate(got.xhr.response).then(
                             function(r){
-                                //document.write(r);
                                 var html = document.implementation.createHTMLDocument('html');
-                                html.documentElement.innerHTML = r;
-                                document.replaceChild(html.documentElement, document.documentElement); // HERENOW
-                                //document.close();
-                                window.setTimeout(function(){
-                                    // TODO: use an init function when there is one to reboot DO
-                                    DO.U.setTemplate();
-                                    SimpleRDF.parse(r, 'text/html').then(
-                                        function(i){
-                                            var g = SimpleRDF(DO.C.Vocab, document.location.href);
-                                            g.graph(i);
-                                            var current = g.child(document.location.href);
-                                            console.log('current');
-                                            console.log(current);
-                                            console.log('current solidtemplate');
-                                            console.log(current.solidtemplate); // This appears to work in firefox but not chrome FML
+                                html.documentElement.innerHTML = r.article;
+                                document.replaceChild(html.documentElement, document.documentElement);
+                                // TODO: use an init function when there is one to reboot DO
+                                DO.U.setTemplate();
+                                SimpleRDF.parse(r.article, 'text/html').then(
+                                    function(i){
+                                        var g = SimpleRDF(DO.C.Vocab, document.location.href);
+                                        g.graph(i);
+                                        var current = g.child(document.location.href);
+                                        var templateURL = current.solidtemplate; // This only works in firefox cos SimpleRDF has a bug
+                                        if(typeof templateURL === "undefined"){ // Temporary hack for Chrome
+                                            templateURL = url;
                                         }
-                                    );
+                                        DO.U.confirmTemplate(templateURL, r.template, document.location.href, r.article, document.getElementById('set-template'));
+                                    }
+                                );
                                     
-                                }, 1000);
                             },
                             function(r){
+                                console.log('Failed to build');
                                 console.log(r);
+                                document.getElementById('set-template').insertAdjacentHTML('beforeEnd', '<p class="error">Failed to build, I don\'t know why... </p>');
                             }
                         );
                     },
                     function(r){
                         console.log(r);
+                        document.getElementById('set-template').insertAdjacentHTML('beforeEnd', '<p class="error">Could not get template (' + r.status + ': ' + r.xhr.statusText + ')</p>');
                     }
                 );
             }, false);
@@ -1277,11 +1277,93 @@ var DO = {
             
         },
         
-        buildTemplate: function(template_html){
+        confirmTemplate: function(templateURL, templateHTML, articleURL, articleHTML, node){
+            node.insertAdjacentHTML('beforeEnd', '<p>Selected: <a href="' + templateURL + '">' + templateURL + '</a></p><p>Warning: article template will not be updated until you confirm!</p>');
+            node.insertAdjacentHTML('beforeEnd', '<p><button class="save">CONFIRM</button> <button class="cancel">Cancel</button></p>');
+            
+            node.querySelector('button.save').addEventListener('click', function(e){
+                DO.U.putResource(articleURL, articleHTML).then(
+                    function(r){
+                        document.getElementById('set-template').insertAdjacentHTML('beforeEnd', '<p class="success">Article updated</p>');
+                        var article = document.implementation.createHTMLDocument("article");
+                        article.documentElement.innerHTML = articleHTML;
+                        var articleName = article.querySelector('h1').textContent;
+                        DO.U.addToTemplate(templateURL, templateHTML, r.xhr.responseURL, articleName);
+                    },
+                    function(r){
+                        var error = '<p class="error">Could not save: ';
+                        switch(r.status){
+                            default:
+                                error += "for unknown reasons ("+r.statusText+")";
+                                break;
+                            case 405:
+                                error += "article not writeable";
+                                break;
+                            case 404:
+                                error += "article not found";
+                                break;
+                            case 401: case 403:
+                                error += "not authorised to write to this article";
+                                break;
+                        }
+                        error += "</p>";
+                        node.insertAdjacentHTML('beforeEnd', error);
+                    }
+                );
+            });
+            node.querySelector('button.cancel').addEventListener('click', function(e){
+                document.location.reload();
+            });
+        },
+        
+        addToTemplate: function(templateURL, templateHTML, articleURL, articleName){
+            var template = document.implementation.createHTMLDocument("template");
+            template.documentElement.innerHTML = templateHTML;
+            console.log(template);
+            var a = template.querySelector('[href="' + articleURL + '"]');
+            if(!a || typeof a === "undefined"){
+                template.querySelector('main ul').insertAdjacentHTML('beforeEnd', '<li><a href="' + articleURL + '">' + articleName + '</a><time></time></li>');
+                var li = template.querySelector('[href="' + articleURL + '"]').parentNode;
+            }else{
+                var li = a.parentNode;
+            }
+            time = new Date();
+            time = time.toUTCString();
+            li.querySelector('time').textContent = ' (' + time + ')';
+            li.querySelector('time').setAttribute('datetime', time);
+            DO.U.putResource(templateURL, DO.U.getDocument(template)).then(
+                function(r){
+                    console.log('template put success');
+                    document.getElementById('set-template').insertAdjacentHTML('beforeEnd', '<p class="success">Template updated</p>');
+                },
+                function(r){
+                    console.log('template put fail');
+                    var error = '<p class="error">Could not save: ';
+                        switch(r.status){
+                            default:
+                                error += "for unknown reasons ("+r.statusText+")";
+                                break;
+                            case 405:
+                                error += "template not writeable";
+                                break;
+                            case 404:
+                                error += "template not found";
+                                break;
+                            case 401: case 403:
+                                error += "not authorised to write to this template";
+                                break;
+                        }
+                        error += "</p>";
+                        document.getElementById('set-template').insertAdjacentHTML('beforeEnd', error);
+                }
+            );
+        },
+        
+        buildWithTemplate: function(templateHTML){
             return new Promise(function(resolve, reject){
               
                 var template = document.implementation.createHTMLDocument("template");
-                template.documentElement.innerHTML = template_html;
+                template.documentElement.innerHTML = templateHTML;
                 var article = document.cloneNode(true);
                 // * get stuff to put into template
                 var main = article.querySelector('main');
@@ -1294,7 +1376,7 @@ var DO = {
                 if(!html_out || html_out.length < 1){
                     return reject('Error building html');
                 }
-                return resolve(html_out);
+                return resolve({template: templateHTML, article: html_out});
             });
         },
 
