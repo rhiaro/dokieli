@@ -32,11 +32,11 @@ var DO = {
         UseStorage: false,
         AutoSaveId: '',
         AutoSaveTimer: 60000,
-        DisableStorageButtons: '<button class="local-storage-disable-html">Disable</button> | <input id="local-storage-html-autosave" class="autosave" type="checkbox" checked="checked"/> <label for="local-storage-html-autosave">Autosave (1m)</label>',
+        DisableStorageButtons: '<button class="local-storage-disable-html">Disable</button>',
         EnableStorageButtons: '<button class="local-storage-enable-html">Enable</button>',
         CDATAStart: '//<![CDATA[',
         CDATAEnd: '//]]>',
-        SortableList: !!document.querySelector('head script[src$="html.sortable.min.js"]'),
+        SortableList: false,
         EditorAvailable: !!document.querySelector('head script[src$="medium-editor.min.js"]'),
         EditorEnabled: false,
         Editor: {
@@ -104,6 +104,11 @@ var DO = {
                 "@id": "https://schema.org/license",
                 "@type": "@id"
             },
+            "schemacitation": {
+                "@id": "https://schema.org/citation",
+                "@type": "@id",
+                "@array": true
+            },
 
             "dctermstitle": "http://purl.org/dc/terms/title",
 
@@ -155,7 +160,7 @@ var DO = {
 
             "oaannotation": {
                 "@id": "http://www.w3.org/ns/oa#Annotation",
-                "@type": "id"
+                "@type": "@id"
             },
             "oahasBody": {
                 "@id": "http://www.w3.org/ns/oa#hasBody",
@@ -188,17 +193,17 @@ var DO = {
 
             "asobject": {
                 "@id": "http://www.w3.org/ns/activitystreams#object",
-                "@type": "id",
+                "@type": "@id",
                 "@array": true
             },
             "astarget": {
                 "@id": "http://www.w3.org/ns/activitystreams#target",
-                "@type": "id",
+                "@type": "@id",
                 "@array": true
             },
             "ascontext": {
                 "@id": "http://www.w3.org/ns/activitystreams#context",
-                "@type": "id",
+                "@type": "@id",
                 "@array": true
             },
 
@@ -724,8 +729,8 @@ var DO = {
                 http.onreadystatechange = function() {
                     if (this.readyState == this.DONE) {
                         if (this.status === 200 || this.status === 201 || this.status === 204) {
-                                return resolve({xhr: this});
-                            }
+                            return resolve({xhr: this});
+                        }
                         return reject({status: this.status, xhr: this});
                     }
                 };
@@ -873,10 +878,14 @@ var DO = {
     ; as:context <' + context + '>\n\
     ; as:target <' + target + '>\n\
     ; as:updated "' + DO.U.getDateTimeISO() + '"^^xsd:dateTime\n\
-    ; as:actor <' + DO.C.User.IRI + '>\n\
 ';
 
-            if (licenseIRI != '') {
+            if (DO.C.User.IRI) {
+                data += '    ; as:actor <' + DO.C.User.IRI + '>\n\
+';
+            }
+
+            if (licenseIRI) {
                 data += '    ; schema:license <' + licenseIRI + '>\n\
 ';
             }
@@ -1064,7 +1073,7 @@ var DO = {
 
             var body = document.body;
             var dMenu = document.querySelector('#document-menu.do');
-            var dMenuButton = dMenu.querySelector('button')
+            var dMenuButton = dMenu.querySelector('button');
 
             var uss = dMenu.querySelector('#user-signin-signup');
             uss.parentNode.removeChild(uss);
@@ -1351,22 +1360,15 @@ var DO = {
         },
 
         showDocumentMetadata: function(node) {
-            var content = $('#content');
+            var content = document.getElementById('content');
             var count = DO.U.contentCount(content);
 
             var contributors = '<ul class="contributors">';
-            $('#authors *[rel*="contributor"]').each(function(i,contributor) {
-                contributors += '<li>' + $(this).html() + '</li>';
-            });
+            var relContributors = document.querySelectorAll('#authors *[rel*="contributor"]');
+            for (var i = 0; i < relContributors.length; i++) {
+                contributors += '<li>' + relContributors[i].innerHTML + '</li>';
+            }
             contributors += '</ul>';
-
-//            var documentID = $('#document-identifier a');
-//            if (documentID.length > 0) {
-//                documentID = '<tr><th>Document ID</th><td>' + documentID.text() + '</td></tr>';
-//            }
-//            else {
-//                documentID = '';
-//            }
 
             var s = '<section id="document-metadata" class="do"><table>\n\
                 <caption>Document Metadata</caption>\n\
@@ -1382,14 +1384,15 @@ var DO = {
                 </tbody>\n\
             </table></section>';
 
-            $(node).append(s);
+            node.insertAdjacentHTML('beforeend', s);
         },
 
         contentCount: function(c) {
-            var content = c.text().trim();
+            var content = c.textContent.trim();
             var contentCount = { readingTime:1, words:0, chars:0, lines:0, pages:{A4:1, USLetter:1}, bytes:0 };
             if (content.length > 0) {
-                var linesCount = Math.ceil(c.height() / parseInt(c.css('line-height')));
+                var lineHeight = c.ownerDocument.defaultView.getComputedStyle(c, null)["line-height"];
+                var linesCount = Math.ceil(c.clientHeight / parseInt(lineHeight));
                 contentCount = {
                     readingTime: Math.ceil(content.split(' ').length / 200),
                     words: content.match(/\S+/g).length,
@@ -1432,56 +1435,6 @@ var DO = {
         },
 
         sortToC: function() {
-            $('.sortable').sortable({
-                connectWith: '.connected'
-            });
-
-            $('.sortable').sortable().bind('sortupdate', function(e, ui) {
-//ui.item contains the current dragged element.
-//ui.item.index() contains the new index of the dragged element
-//ui.oldindex contains the old index of the dragged element
-//ui.startparent contains the element that the dragged item comes from
-//ui.endparent contains the element that the dragged item was added to
-
-//console.log(ui);
-//console.log(ui.item);
-//console.log(ui.startparent);
-//console.log(ui.oldindex);
-//console.log(ui.endparent);
-//console.log(ui.item.index());
-
-                var id  = $(ui.item).attr('data-id');
-                var node = $('#' + id);
-
-                var endParentId = $(ui.endparent).parent().attr('data-id') || 'content';
-                var endParent = $('#' + endParentId);
-                var endParentHeading = endParent.find('> :header');
-                endParentHeading = (endParentHeading.length > 0) ? parseInt(endParentHeading.prop("tagName").substring(1)) : 1;
-                var afterNode = (endParentHeading == 1) ? endParent.find('> section:nth-of-type(' + ui.item.index() +')')  : endParent.find('*:nth-of-type(1) > section:nth-of-type(' + ui.item.index() +')');
-
-                var aboutContext = (endParentId == 'content') ? '' : '#' + endParentId;
-//                node.attr('about', '[this:' + aboutContext +']');
-
-                var nodeDetached = node.detach();
-
-                var nodeDetachedHeading = nodeDetached.find('> :header');
-                nodeDetachedHeading = (nodeDetachedHeading.length > 0) ? parseInt(nodeDetachedHeading.prop("tagName").substring(1)) : 1;
-
-                var nH = (endParentHeading + 1) - nodeDetachedHeading;
-                nodeDetached.find(':header:nth-of-type(1)').each(function(i, heading) {
-                    var oldHeadingIndex = parseInt($(heading).prop("tagName").substring(1));
-                    var newHeadingIndex = oldHeadingIndex + nH;
-
-                    var newHeading = $('<h' + newHeadingIndex + '></h' + newHeadingIndex + '>');
-                    $.each(heading.attributes, function(index) {
-                        $(newHeading).attr(heading.attributes[index].name, heading.attributes[index].value);
-                    });
-                    $(newHeading).html($(heading).html());
-                    $(heading).after(newHeading).remove();
-                });
-
-                afterNode.after(nodeDetached);
-            });
         },
 
         getListOfSections: function(sections, sortable) {
@@ -1603,7 +1556,12 @@ var DO = {
         },
 
         buttonClose: function() {
-            $(document).on('click', 'button.close', function(e) { $(this).parent().remove(); });
+            document.addEventListener('click', function(e) {
+                if (e.target.matches('button.close')) {
+                    var parent = e.target.parentNode;
+                    parent.parentNode.removeChild(parent);
+                }
+            });
         },
 
         eventEscapeDocumentMenu: function(e) {
@@ -1646,14 +1604,16 @@ var DO = {
         },
 
         showFragment: function() {
-            $(document).on({
-                mouseenter: function () {
-                    if($('#'+this.id+' > .do.fragment').length == 0 && this.parentNode.nodeName.toLowerCase() != 'aside'){
+            var ids = document.querySelectorAll('#content *[id], #document-interactions *[id]');
+            for(var i = 0; i < ids.length; i++){
+                ids[i].addEventListener('mouseenter', function(e){
+                    var fragment = document.querySelector('#' + e.target.id + ' > .do.fragment');
+                    if (!fragment && e.target.parentNode.nodeName.toLowerCase() != 'aside'){
                         var sign;
-                        switch(this.nodeName.toLowerCase()) {
+                        switch(e.target.nodeName.toLowerCase()) {
                             default:        sign = '🔗'; break;
                             case 'section':
-                                switch (this.id) {
+                                switch (e.target.id) {
                                     default:                  sign = '§'; break;
                                     case 'references':        sign = '☛'; break;
                                     case 'acknowledgements':  sign = '☺'; break;
@@ -1673,21 +1633,22 @@ var DO = {
                             case 'audio':   sign = '🔊'; break;
                             case 'footer':  sign = '⸙'; break;
                         }
-                        $('#'+this.id).prepend('<span class="do fragment" style="height:' + this.clientHeight + 'px; "><a href="#' + this.id + '">' + sign + '</a></span>');
-                        var fragment = $('#'+this.id+' > .do.fragment');
-                        var fragmentClientWidth = fragment.get(0).clientWidth;
-                        fragment.css({
-                            'top': 'calc(' + Math.ceil($(this).position().top) + 'px)',
-                            'left': '-' + (fragmentClientWidth - 2) + 'px',
-                            'width': (fragmentClientWidth - 10) + 'px'
-                        });
+                        e.target.insertAdjacentHTML('afterbegin', '<span class="do fragment"><a href="#' + e.target.id + '">' + sign + '</a></span>');
+                        fragment = document.querySelector('#' + e.target.id + ' > .do.fragment');
+                        var fragmentClientWidth = fragment.clientWidth;
+
+                       fragment.style.top = Math.ceil(e.target.offsetTop) + 'px';
+                       fragment.style.left = '-' + (fragmentClientWidth - 2) + 'px';
+                       fragment.style.height = e.target.clientHeight + 'px';
+                       fragment.style.width = (fragmentClientWidth - 10) + 'px';
                     }
-                },
-                mouseleave: function () {
-                    $('#'+this.id+' > .do.fragment').remove();
-                    $('#'+this.id).filter('[class=""]').removeAttr('class');
-                }
-            }, '#content *[id], #document-interactions *[id]');
+                });
+
+                ids[i].addEventListener('mouseleave', function(e){
+                    var fragment = document.querySelector('#' + e.target.id + ' > .do.fragment');
+                    fragment.parentNode.removeChild(fragment);
+                });
+            }
         },
 
         forceTrailingSlash: function(aString) {
@@ -2407,46 +2368,54 @@ var DO = {
         },
         disableAutoSave: function(item) {
             clearInterval(DO.C.AutoSaveId);
+            DO.C.AutoSaveId = '';
             console.log(DO.U.getDateTimeISO() + ': Autosave disabled.');
         },
         showStorage: function(node) {
             if (typeof window.localStorage != 'undefined') {
-                var useStorage = '';
+                var useStorage, checked;
 
                 if (DO.C.UseStorage) {
-                    useStorage = DO.C.DisableStorageButtons;
+                    if (DO.C.AutoSaveId) {
+                        checked = ' checked="checked"';
+                    }
+                    useStorage = DO.C.DisableStorageButtons + ' | <input id="local-storage-html-autosave" class="autosave" type="checkbox"' + checked +' /> <label for="local-storage-html-autosave">Autosave ⏲ 1m</label>';
                 }
                 else {
                     useStorage = DO.C.EnableStorageButtons;
                 }
 
-                $(node).append('<section id="local-storage" class="do"><h2>Local Storage</h2>\n\
-                <p>' + useStorage + '</p>\n\
-                </section>');
+                node.insertAdjacentHTML('beforeend', '<section id="local-storage" class="do"><h2>Local Storage</h2><p>' + useStorage + '</p></section>');
 
-                $('#local-storage').on('click', 'button.local-storage-enable-html', function(e) {
-                    $(this).parent().html(DO.C.DisableStorageButtons);
-                    DO.U.enableStorage('html');
-                });
-                $('#local-storage').on('click', 'button.local-storage-disable-html', function(e) {
-                    $(this).parent().html(DO.C.EnableStorageButtons);
-                    DO.U.disableStorage('html');
-                });
-                $('#local-storage').on('click', 'input.autosave', function(e) {
-                    if ($(this).attr('checked') == 'checked') {
-                        $(this).removeAttr('checked');
-                        DO.U.disableAutoSave('html');
+                document.getElementById('local-storage').addEventListener('click', function(e) {
+                    if (e.target.matches('button.local-storage-enable-html')) {
+                        e.target.outerHTML = DO.C.DisableStorageButtons;
+                        DO.U.enableStorage('html');
                     }
-                    else {
-                        $(this).attr('checked', 'checked');
-                        DO.U.enableAutoSave('html');
+
+                    if (e.target.matches('button.local-storage-disable-html')) {
+                        e.target.outerHTML = DO.C.EnableStorageButtons;
+                        DO.U.disableStorage('html');
+                    }
+
+                    if (e.target.matches('input.autosave')) {
+                        console.log(e.target.checked);
+                        if (e.target.getAttribute('checked')) {
+                            e.target.removeAttribute('checked');
+                            DO.U.disableAutoSave('html');
+                        }
+                        else {
+                            e.target.setAttribute('checked', 'checked');
+                            DO.U.enableAutoSave('html');
+                        }
                     }
                 });
             }
         },
         hideStorage: function() {
             if (DO.C.UseStorage) {
-                $('#local-storage.do').remove();
+                var ls = document.getElementById('local-storage');
+                ls.parentNode.removeChild(ls);
             }
         },
 
@@ -2475,44 +2444,44 @@ var DO = {
             return a;
         },
 
-        openTarget: function() {
-            $(document).find("a.external").attr("target", "_blank");
-        },
-
         buildReferences: function() {
-            if ($('#references ol').length == 0) {
+            if (!document.querySelector('#references ol')) {
                 //XXX: Not the best way of doing this, but it allows DO references to be added to the right place.
-                $('#references').append('\n<ol>\n</ol>\n');
+                var references = document.getElementById('references');
+                references.insertAdjacentHTML('beforeend', '\n<div><ol>\n</ol></div>\n');
 
-                $('#content span.ref').each(function(i,v) {
-                    var referenceText = '';
-                    var referenceLink = '';
-                    var refId = (i+1);
-                    var href = $(v).attr('href');
-                    var title = $(v).attr('title');
+                var refs = document.querySelectorAll('#content span.ref');
+                if (refs) {
+                    for (var i = 0; i < refs.length; i++) {
+                        var referenceText = '';
+                        var referenceLink = '';
+                        var refId = (i+1);
+                        var href = refs[i].getAttribute('href');
+                        var title = refs[i].getAttribute('title');
 
-                    if (title) {
-                        referenceText = title.replace(/ & /g, " &amp; ");
-                    }
-                    if (href) {
-                        referenceLink = href.replace(/&/g, "&amp;");
-                        referenceLink = '<a about="[this:]" rel="schema:citation" href="' + referenceLink + '">' + referenceLink + '</a>';
                         if (title) {
-                            referenceLink = ', ' + referenceLink;
+                            referenceText = title.replace(/ & /g, " &amp; ");
+                        }
+                        if (href) {
+                            referenceLink = href.replace(/&/g, "&amp;");
+                            referenceLink = '<a about="" rel="schema:citation" href="' + referenceLink + '">' + referenceLink + '</a>';
+                            if (title) {
+                                referenceLink = ', ' + referenceLink;
+                            }
+                        }
+
+                        refs[i].outerHTML = ' ' + DO.C.RefType[DO.C.DocRefType].InlineOpen + '<a class="ref" href="#ref-' + refId + '">' + refId + '</a>' + DO.C.RefType[DO.C.DocRefType].InlineClose;
+
+                        document.querySelector('#references ol').insertAdjacentHTML('beforeend', '\n    <li id="ref-' + refId + '"></li>');
+
+                        if(refs[i].classList.contains('do')) {
+                            DO.U.getLinkedResearch(href, document.querySelector('#references #ref-' + refId));
+                        }
+                        else {
+                            document.querySelector('#references #ref-' + refId).innerHTML = referenceText + referenceLink;
                         }
                     }
-
-                    v.outerHTML = ' ' + DO.C.RefType[DO.C.DocRefType].InlineOpen + '<a class="ref" href="#ref-' + refId + '">' + refId + '</a>' + DO.C.RefType[DO.C.DocRefType].InlineClose;
-
-                    $('#references ol').append('\n    <li id="ref-' + refId + '"></li>');
-
-                    if($(v).hasClass('do')) {
-                        DO.U.getLinkedResearch(href, $('#references #ref-' + refId));
-                    }
-                    else {
-                        $('#references #ref-' + refId).html(referenceText + referenceLink);
-                    }
-                });
+                }
             }
         },
 
@@ -2538,7 +2507,7 @@ LIMIT 1";
                     store.execute(queryA, function(success, results) {
                         if (results.length > 0) {
                             console.log(results);
-                            resultsNode.html(results[0].prefLabel.value + ', <a class="href" href="' + iri + '">' + iri + '</a>');
+                            resultsNode.innerHTML = results[0].prefLabel.value + ', <a class="href" href="' + iri + '">' + iri + '</a>';
                         }
                         else {
                             console.log("NOPE 2");
@@ -2552,17 +2521,24 @@ LIMIT 1";
         },
 
         highlightItems: function() {
-            var d = $(document);
-            d.on({
-                mouseenter: function () {
-                    var c = $(this).prop('class');
-                    d.find('*[class="'+ c +'"]').addClass('do highlight');
-                },
-                mouseleave: function () {
-                    var c = $(this).prop('class');
-                    d.find('*[class="'+ c +'"]').removeClass('do highlight');
-                }
-            }, '*[class*="highlight-"]');
+            var highlights = document.body.querySelectorAll('*[class*="highlight-"]');
+            for (var i = 0; i < highlights.length; i++) {
+                highlights[i].addEventListener('mouseenter', function(e) {
+                    var c = e.target.getAttribute('class');
+                    var highlightsX = document.body.querySelectorAll('*[class*="'+ c +'"]');
+                    for (var j = 0; j < highlightsX.length; j++) {
+                        highlightsX[j].classList.add('do', 'highlight');
+                    }
+                });
+
+                highlights[i].addEventListener('mouseleave', function(e) {
+                    var c = e.target.getAttribute('class');
+                    var highlightsX = document.body.querySelectorAll('*[class*="'+ c +'"]');
+                    for (var j = 0; j < highlightsX.length; j++) {
+                        highlightsX[j].classList.remove('do', 'highlight');
+                    }
+                });
+            }
         },
 
         hashCode: function(s){
@@ -2639,25 +2615,26 @@ LIMIT 1";
         },
 
         showRefs: function() {
-            $('span.ref').each(function() {
+            var refs = document.querySelectorAll('span.ref');
+            for (var i = 0; i < refs.length; i++) {
 // console.log(this);
-                var ref = $(this).find('> mark[id]').get(0);
+                var ref = refs[i].querySelector('mark[id]');
 // console.log(ref);
-                var refId = $(ref).prop('id');
+                var refId = ref.id;
 // console.log(refId);
-                var refA = $(this).find('[class*=ref-] a');
+                var refA = refs[i].querySelector('[class*=ref-] a');
 // console.log(refA);
-                refA.each(function() {
-                    var noteIRI = $(this).prop('href');
+                for (var j = 0; j < refA.length; j++) {
+                    var noteIRI = refA[j].href;
 // console.log(noteIRI);
-                    var refLabel = $(this).text();
+                    var refLabel = refA[j].textContent;
 // console.log(refLabel);
 
                     //FIXME: the noteId parameter for positionNote shouldn't
                     //rely on refLabel. Grab it from somewhere else.
                     DO.U.positionNote(refId, refLabel, refLabel);
-                });
-            });
+                };
+            }
         },
 
         positionNote: function(refId, refLabel, noteId) {
@@ -3102,9 +3079,6 @@ LIMIT 1";
 
                     DO.C.EditorEnabled = true;
                     return DO.U.Editor.MediumEditor;
-            //            $('.editable').mediumInsert({
-            //                editor: editor
-            //            });
                 }
             },
 
@@ -3897,7 +3871,7 @@ LIMIT 1";
                                         function(inbox) {
                                             if (inbox && inbox.length > 0) {
 // console.log('inbox: ' + inbox);
-                                                DO.U.notifyInbox(inbox, id, noteIRI, 'http://www.w3.org/ns/oa#hasTarget', targetIRI).then(
+                                                DO.U.notifyInbox(inbox, id, noteIRI, 'http://www.w3.org/ns/oa#hasTarget', targetIRI, opts.license).then(
                                                         function(response) {
 // console.log("Notification: " + response.xhr.getResponseHeader('Location'));
                                                         },
@@ -4050,7 +4024,7 @@ LIMIT 1";
     } //DO.U
 }; //DO
 
-$(document).ready(function() {
+document.addEventListener('DOMContentLoaded', function(){
 //    DO.U.initStorage('html');
 //    DO.U.setDocRefType();
     DO.U.showRefs();
@@ -4058,7 +4032,6 @@ $(document).ready(function() {
     DO.U.buttonClose();
     DO.U.highlightItems();
     DO.U.showDocumentInfo();
-//    DO.U.openTarget();
 //    DO.U.buildReferences();
 //    DO.U.getLinkedResearch();
     DO.U.showFragment();
