@@ -1211,12 +1211,12 @@ var DO = {
             node.insertAdjacentHTML('beforeEnd', '<section id="templates" class="do"><h2>Templates</h2></section>');
             DO.U.getTemplateURL(DO.U.getDocument()).then(
                 function(templateURL){
-                    DO.U.getGraph('https://rdf-translator.appspot.com/convert/rdfa/turtle/'+templateURL).then(
+                    DO.U.getGraph(templateURL).then(
                         function(g){
                             console.log(g);
                             var templateGraph = g.child(templateURL);
                             console.log(templateGraph);
-                            console.log(templateGraph.schemaname);
+                            console.log(templateGraph.schemaname); // TODO: This doesn't work because of github.com/nicola/simplerdf/issues/19
                             node.querySelector('#templates').insertAdjacentHTML('beforeEnd', '<p>Using template: <a href="' + templateURL + '">' + templateGraph.schemaname + '</a></p>');
                         },
                         function(reason){
@@ -1229,7 +1229,7 @@ var DO = {
                     console.log(i);
                 }
             );
-            node.querySelector('#templates').insertAdjacentHTML('beforeEnd', '<button class="choose-template">Choose template</button>');
+            node.querySelector('#templates').insertAdjacentHTML('beforeEnd', '<button class="choose-template">Set template</button>');
             document.querySelector('#templates.do button').addEventListener('click', function(e){
                 DO.U.setTemplate();
                 e.target.setAttribute('disabled', 'disabled');
