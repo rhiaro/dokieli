@@ -1208,7 +1208,28 @@ var DO = {
         },
         
         showTemplates: function(node){
-            node.insertAdjacentHTML('beforeEnd', '<section id="templates" class="do"><h2>Templates</h2><button class="choose-template">Choose template</button></section>');
+            node.insertAdjacentHTML('beforeEnd', '<section id="templates" class="do"><h2>Templates</h2></section>');
+            DO.U.getTemplateURL(DO.U.getDocument()).then(
+                function(templateURL){
+                    DO.U.getGraph('https://rdf-translator.appspot.com/convert/rdfa/turtle/'+templateURL).then(
+                        function(g){
+                            console.log(g);
+                            var templateGraph = g.child(templateURL);
+                            console.log(templateGraph);
+                            console.log(templateGraph.schemaname);
+                            node.querySelector('#templates').insertAdjacentHTML('beforeEnd', '<p>Using template: <a href="' + templateURL + '">' + templateGraph.schemaname + '</a></p>');
+                        },
+                        function(reason){
+                            console.log(reason);
+                            node.querySelector('#templates').insertAdjacentHTML('beforeEnd', '<p>Using template: <a href="' + templateURL + '">' + templateURL + '</a></p>');
+                        }
+                    );
+                },
+                function(i){
+                    console.log(i);
+                }
+            );
+            node.querySelector('#templates').insertAdjacentHTML('beforeEnd', '<button class="choose-template">Choose template</button>');
             document.querySelector('#templates.do button').addEventListener('click', function(e){
                 DO.U.setTemplate();
                 e.target.setAttribute('disabled', 'disabled');
@@ -1217,19 +1238,26 @@ var DO = {
         
         getTemplateURL: function(articleHTML){
             // Assuming it's in a solid:template relation in the articleHTML.
-            SimpleRDF.parse(articleHTML, 'text/html').then(
-                function(i){
-                    var g = SimpleRDF(DO.C.Vocab, document.location.href);
-                    g.graph(i);
-                    var current = g.child(document.location.href);
-                    return current.solidtemplate; // This only works in firefox cos SimpleRDF has a bug
-                },
-                function(i){
-                    console.log('Error parsing');
-                    console.log(i);
-                    return undefined;
-                }
-            );
+            return new Promise(function(resolve, reject) {
+                SimpleRDF.parse(articleHTML, 'text/html').then(
+                    function(i){
+                        var g = SimpleRDF(DO.C.Vocab, document.location.href);
+                        g.graph(i);
+                        var current = g.child(document.location.href);
+                        console.log(current.solidtemplate);
+                        if(typeof current.solidtemplate !== 'undefined'){
+                            return resolve(current.solidtemplate); // This only works in firefox cos SimpleRDF has a bug
+                        }else{
+                            console.log('Not found');
+                            return reject();
+                        }
+                    },
+                    function(i){
+                        console.log('Error parsing');
+                        return reject(i);
+                    }
+                );
+            });
         },
         
         setTemplate: function(){
@@ -1257,11 +1285,16 @@ var DO = {
                                 document.replaceChild(html.documentElement, document.documentElement);
                                 // TODO: use an init function when there is one to reboot DO
                                 DO.U.setTemplate();
-                                templateURL = DO.U.getTemplateURL(r.article);
-                                if(typeof templateURL === "undefined"){ // Temporary hack for Chrome
-                                    templateURL = url;
-                                }
-                                DO.U.confirmTemplate(templateURL, r.template, document.location.href, r.article, document.getElementById('set-template'));
+                                DO.U.getTemplateURL(r.article).then(
+                                    function(templateURL){
+                                        DO.U.confirmTemplate(templateURL, r.template, document.location.href, r.article, document.getElementById('set-template'));
+                                    },
+                                    function(fail){
+                                        // Temporary hack for Chrome
+                                        DO.U.confirmTemplate(url, r.template, document.location.href, r.article, document.getElementById('set-template'));
+                                        //document.getElementById('set-template').insertAdjacentHTML('beforeEnd', '<p class="error">Could not get template</p>');
+                                    }
+                                );
                             },
                             function(r){
                                 console.log('Failed to build');
@@ -1862,6 +1895,8 @@ var DO = {
             return new Promise(function(resolve, reject) {
                 SimpleRDF(DO.C.Vocab, url, null, ld.store).get().then(
                     function(i){
+                      console.log('get graph')
+                      console.log(i);
                        return resolve(i);
                     },
                     function(reason) {
