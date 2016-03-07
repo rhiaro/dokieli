@@ -1283,7 +1283,7 @@ var DO = {
                                 var html = document.implementation.createHTMLDocument('html');
                                 html.documentElement.innerHTML = r.article;
                                 document.replaceChild(html.documentElement, document.documentElement);
-                                // TODO: use an init function when there is one to reboot DO
+                                DO.U.showDocumentInfo();
                                 DO.U.setTemplate();
                                 DO.U.getTemplateURL(r.article).then(
                                     function(templateURL){
@@ -1329,18 +1329,18 @@ var DO = {
         },
         
         confirmTemplate: function(templateURL, templateHTML, articleURL, articleHTML, node){
-            node.insertAdjacentHTML('beforeEnd', '<p>Selected: <a href="' + templateURL + '">' + templateURL + '</a></p><p>Warning: article template will not be updated until you confirm!</p>');
+            node.insertAdjacentHTML('beforeEnd', '<p>Previewing: <a href="' + templateURL + '">' + templateURL + '</a></p><p>Warning: article template will not be updated until you confirm!</p>');
             node.insertAdjacentHTML('beforeEnd', '<p><button class="save">CONFIRM</button> <button class="cancel">Cancel</button></p>');
             
             node.querySelector('button.save').addEventListener('click', function(e){
                 DO.U.putResource(articleURL, articleHTML).then(
                     function(r){
-                        document.getElementById('set-template').insertAdjacentHTML('beforeEnd', '<p class="success">Article updated</p>');
+                        document.getElementById('set-template').insertAdjacentHTML('beforeEnd', '<p class="success">Article saved!</p>');
                         var article = document.implementation.createHTMLDocument("article");
                         article.documentElement.innerHTML = articleHTML;
                         var articleName = article.querySelector('h1').textContent;
                         node.querySelector('button.save').remove();
-                        node.querySelector('button.cancel').textContent = 'Reload to keep editing';
+                        node.querySelector('button.cancel').remove();
                         DO.U.addToTemplate(templateURL, templateHTML, r.xhr.responseURL, articleName);
                     },
                     function(r){
