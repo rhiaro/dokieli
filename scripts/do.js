@@ -1380,6 +1380,10 @@ var DO = {
             template.documentElement.innerHTML = templateHTML;
             console.log(template);
             var a = template.querySelector('[href="' + articleURL + '"]');
+            var ul = template.querySelector('main ul');
+            if(!ul || typeof ul === "undefined"){
+                template.querySelector('main').appendChild(document.createElement('ul'));
+            }
             if(!a || typeof a === "undefined"){
                 template.querySelector('main ul').insertAdjacentHTML('beforeEnd', '<li><a href="' + articleURL + '">' + articleName + '</a><time></time></li>');
                 var li = template.querySelector('[href="' + articleURL + '"]').parentNode;
