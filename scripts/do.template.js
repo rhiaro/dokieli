@@ -24,33 +24,8 @@ var TPL = {
     document.getElementById('template-built').setAttribute('datetime', time);
     document.getElementById('template-built').textContent = time;
   },
-  
-  getContent: function(url){
-      var headers = {};
-      headers['Accept'] = 'text/html; charset=utf-8';
-      return new Promise(function(resolve, reject) {
-          var http = new XMLHttpRequest();
-          http.open('GET', url);
-          Object.keys(headers).forEach(function(key) {
-              http.setRequestHeader(key, headers[key]);
-          });
-          http.withCredentials = true;
-          http.onreadystatechange = function() {
-              if (this.readyState == this.DONE) {
-                  // does this contain headers if any are returned? make sure they are passed along
-                  return resolve({xhr: this});
-              }
-              // this always gets returned??? even though above if gets triggered (offline tho)
-              //return reject({status: this.status, xhr: this});
-          };
-          http.send();
-      });
-  },
-  
-  
-  
-  buildContent: function(){
-      
+
+  buildAll: function(){
       var build = function(result){
           return new Promise(function(resolve, reject){
               // Get template DOM
@@ -97,7 +72,7 @@ var TPL = {
                   for(var i = 0; i < pages.length; i++){
                       update_list(pages[i].href, "...building...");
                       if(pages[i].href.match(/^https:\/\//g)){
-                          TPL.getContent(pages[i].href).then(build).then(
+                          DO.U.getResource(pages[i].href).then(build).then(
                               function(response){
                                   // * PUT that back to content page URL
                                   DO.U.putResource(response.url, response.html).then(
@@ -118,7 +93,7 @@ var TPL = {
                                                   error += "not found";
                                                   break;
                                               case 401: case 403:
-                                                  error += "not authorised";
+                                                  error += "not authorised to write";
                                                   break;
                                           }
                                           update_list(r.xhr.responseURL, "Failed ("+error+")");
@@ -126,9 +101,23 @@ var TPL = {
                                   );
                               },
                               function(reason){
-                                  console.log('FUUUUUUU');
                                   console.log(reason);
-                                  update_list(reason.url, "Failed ("+reason.error+")");
+                                  var error = "";
+                                  switch(reason.status){
+                                      default:
+                                          error += "for unknown reasons ("+r.status+")";
+                                          break;
+                                      case 405:
+                                          error += "not retrievable";
+                                          break;
+                                      case 404:
+                                          error += "not found";
+                                          break;
+                                      case 401: case 403:
+                                          error += "not authorised to read";
+                                          break;
+                                  }
+                                  update_list(reason.xhr.responseURL, "Failed ("+error+")");
                               }
                           );
                       }else{
@@ -167,20 +156,25 @@ var TPL = {
   showMenu: function(){
     var lastMod = TPL.getLastModified();
     var lastBuilt = TPL.getLastBuilt();
-    var menu = '<menu class="do on" id="template-menu"><h2>Template</h2><div><p>This is a template</p><p><button id="build-template">Build now</button></p><p><button id="template-export">Export</button></p></section></div></aside>';
-    document.querySelector('body').insertAdjacentHTML('beforeEnd', menu);
-    
+    var templatesMenu = document.getElementById('templates');
+    templatesMenu.innerHTML = '<h2>Template</h2><div><p><button id="build-template">Build</button></p>';
     var doBuild = document.getElementById('build-template');
     doBuild.addEventListener("click", function(e){
       e.preventDefault();
-      TPL.buildContent();
+      TPL.buildAll();
     }, false);
     
-    document.getElementById('template-export').addEventListener("click", DO.U.exportAsHTML);
   }
   
 }
 
 document.addEventListener("DOMContentLoaded", function(event) {
-  TPL.showMenu();
+
+  document.querySelector('main').style.backgroundColor = '#e0e0e0';
+  document.querySelector('main').insertAdjacentHTML('afterBegin', '<p>This is a template. You can make changes to everything outside of the gray area (<code>main</code>), and when you click "build", each article which uses this template (those listed below) will be updated (if you have write access).');
+
+  document.querySelector('#document-menu button').addEventListener('click', function(){
+      TPL.showMenu();
+  });
+
 });
