@@ -1217,7 +1217,13 @@ var DO = {
                             var templateGraph = g.child(templateURL);
                             console.log(templateGraph);
                             console.log(templateGraph.schemaname); // TODO: This doesn't work because of github.com/nicola/simplerdf/issues/19
-                            node.querySelector('#templates').insertAdjacentHTML('beforeEnd', '<p>Using template: <a href="' + templateURL + '">' + templateGraph.schemaname + '</a></p>');
+                            var name = templateURL;
+                            if(typeof templateGraph.schemaname !== 'undefined'){
+                                name = templateGraph.schemaname;
+                            }else if(typeof templateGraph.foafname !== 'undefined'){
+                                name = templateGraph.foafname;
+                            }
+                            node.querySelector('#templates').insertAdjacentHTML('beforeEnd', '<p>Using template: <a href="' + templateURL + '">' + name + '</a></p>');
                         },
                         function(reason){
                             console.log(reason);
