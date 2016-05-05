@@ -2988,6 +2988,24 @@ var DO = {
             return a;
         },
 
+        encryptString: function(theString, secret) {
+            if(typeof CryptoJS !== 'undefined'){
+                var encrypted = CryptoJS.AES.encrypt(theString, secret);
+                return encrypted.toString();
+            }else{
+                console.log('Need <script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/rollups/aes.js"></script>');
+            }
+        },
+
+        decryptString: function(encrypted, secret) {
+            if(typeof CryptoJS !== 'undefined'){
+                var decrypted = CryptoJS.AES.decrypt(encrypted, secret); 
+                return decrypted.toString(CryptoJS.enc.Utf8);
+            }else{
+                console.log('Need <script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/rollups/aes.js"></script>');
+            }
+        },
+
         getCitation: function(i, options) {
             var iri = i;
             // if (typeof options !== 'undefined' && 'type' in options && options.type == 'doi') {
@@ -3638,11 +3656,13 @@ var DO = {
 
                                 //Annotation
                                 'mark',
-                                'note'
+                                'note',
 
                                 //Editorial
                                 // 'del',
-                                // 'ins'
+                                // 'ins',
+                                'encrypt',
+                                'decrypt'
                             ],
                             //This should use relative units because text zoom in/out
                             diffLeft: 0,
@@ -3704,6 +3724,9 @@ var DO = {
                             //XXX: Interesting for editor
                             // 'del': new DO.U.Editor.Button({action:'del', label:'del'}),
                             // 'ins': new DO.U.Editor.Button({action:'ins', label:'ins'})
+
+                            'encrypt': new DO.U.Editor.Note({action:'encrypt', label:'encrypt'}),
+                            'decrypt': new DO.U.Editor.Note({action:'decrypt', label:'decrypt'}),
 
                             'table': new MediumEditorTable()
             //                'spreadsheet': new MediumEditorSpreadsheet()
@@ -4038,6 +4061,12 @@ var DO = {
                                 case 'rdfa':
                                     this.contentFA = '<i class="fa fa-rocket"></i>';
                                     break;
+                                case 'encrypt':
+                                    this.contentFA = '<i class="fa fa-lock"></i>';
+                                    break;
+                                case 'decrypt':
+                                    this.contentFA = '<i class="fa fa-unlock-alt"></i>';
+                                    break;
                             }
                             MediumEditor.extensions.form.prototype.init.apply(this, arguments);
 
@@ -4111,6 +4140,11 @@ var DO = {
                                     '<input type="radio" name="citation-type" value="ref-reference" id="ref-reference" /> <label for="ref-reference">Reference</label>',
                                     '<input type="text" name="citation-url" value="" id="citation-url" class="medium-editor-toolbar-input" placeholder="http://example.org/article#results" />',
                                     '<textarea id="citation-content" cols="20" rows="1" class="medium-editor-toolbar-textarea" placeholder="', this.placeholderText, '"></textarea>'
+                                    ];
+                                    break;
+                                case 'encrypt': case 'decrypt':
+                                    template = [
+                                    '<label for="secret-key">Secret key</label><input id="secret-key" type="password" name="secret-key" class="medium-editor-toolbar-input" placeholder="my secret phrase" />'
                                     ];
                                     break;
                                 default:
@@ -4205,6 +4239,9 @@ var DO = {
                                     input.url.focus();
                                     document.querySelector('.medium-editor-toolbar-form input[name="citation-type"]').checked = true;
                                     break;
+                                case 'encrypt': case 'decrypt':
+                                    input.secret.focus();
+                                    break;
                                 default:
                                     input.focus();
                                     break;
@@ -4265,7 +4302,9 @@ var DO = {
                                     opts.url = this.getInput().url.value;
                                     opts.content = this.getInput().content.value;
                                     break;
-
+                                case 'encrypt': case 'decrypt':
+                                    opts.secret = this.getInput().secret.value;
+                                    break;
                                 default:
                                     opts.url = this.getInput().value;
                                     break;
@@ -4472,6 +4511,32 @@ var DO = {
                                     ref = DO.U.createRDFaHTML(noteData);
 
                                     break;
+
+                                case 'encrypt':
+                                    ref = '<span class="do-secret">' + DO.U.encryptString(this.base.selection, opts.secret) + '</span>';
+                                    console.log(opts.secret);
+                                    console.log(this.base.selection);
+                                    break;
+
+                                case 'decrypt':
+                                    var decrypted = DO.U.decryptString(this.base.selection, opts.secret);
+                                    //MediumEditor.util.insertHTMLCommand(this.base.selectedDocument, decrypted);
+                                    var temp = document.createElement('div');
+                                    temp.innerHTML = decrypted;
+                                    while (temp.firstChild) {
+                                        selectedParentElement.parentNode.insertBefore(temp.firstChild, selectedParentElement);
+                                        console.log(temp.firstChild); // HERENOW
+                                    }
+                                    if(selectedParentElement.classList.contains('do-secret') && selectedParentElement.parentNode !== null){
+                                        var selectedNodes = selectedParentElement.innerHTML;
+                                        selectedParentElement.parentNode.insertAdjacentHTML('beforeEnd', decrypted);
+                                        selectedParentElement.parentNode.removeChild(selectedParentElement);
+                                    }
+                                    console.log(opts.secret);
+                                    console.log(this.base.selection);
+                                    console.log(decrypted);
+                                    
+                                    break;
                             }
 // console.log(note);
 
@@ -4639,7 +4704,7 @@ var DO = {
                             var close = form.querySelector('.medium-editor-toolbar-close'),
                                 save = form.querySelector('.medium-editor-toolbar-save');
 
-                            if (this.action == 'rdfa') {
+                            if (this.action == 'rdfa' || this.action == 'encrypt' || this.action == 'decrypt') {
                                 var input = form.querySelector('.medium-editor-toolbar-input');
                             }
                             else {
@@ -4696,7 +4761,9 @@ var DO = {
                                     r.url = this.getForm().querySelector('#citation-url.medium-editor-toolbar-input');
                                     r.content = this.getForm().querySelector('#citation-content.medium-editor-toolbar-textarea');
                                     break;
-
+                                case 'encrypt': case 'decrypt':
+                                    r.secret = this.getForm().querySelector('#secret-key.medium-editor-toolbar-input');
+                                    break;
                                 default:
                                     r = this.getForm().querySelector('textarea.medium-editor-toolbar-textarea');
                                     break;
