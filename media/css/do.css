@@ -643,6 +643,10 @@ width:100%;
 max-width:100px;
 }
 
+.do-secret {
+  font-size: 0.8em; color: #fff; background-color: #ccc;
+}
+
 /*TODO MOVE TO editor.css */
 .medium-editor-toolbar-form label[for^="rdfa-"] {
 font-weight:bold;
